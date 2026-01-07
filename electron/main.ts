@@ -174,7 +174,29 @@ function startServer(): Promise<void> {
       expressApp.put('/api/sections/:id', (req, res) => {
         const { id } = req.params;
         const { name, type, sort_order } = req.body;
-        db.prepare('UPDATE sections SET name = ?, type = ?, sort_order = ? WHERE id = ?').run(name, type, sort_order, id);
+
+        // Build dynamic update query for partial updates
+        const updates: string[] = [];
+        const values: (string | number)[] = [];
+
+        if (name !== undefined) {
+          updates.push('name = ?');
+          values.push(name);
+        }
+        if (type !== undefined) {
+          updates.push('type = ?');
+          values.push(type);
+        }
+        if (sort_order !== undefined) {
+          updates.push('sort_order = ?');
+          values.push(sort_order);
+        }
+
+        if (updates.length > 0) {
+          values.push(Number(id));
+          db.prepare(`UPDATE sections SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        }
+
         const section = db.prepare('SELECT * FROM sections WHERE id = ?').get(id);
         res.json(section);
       });
@@ -201,7 +223,29 @@ function startServer(): Promise<void> {
       expressApp.put('/api/groups/:id', (req, res) => {
         const { id } = req.params;
         const { section_id, name, sort_order } = req.body;
-        db.prepare('UPDATE groups SET section_id = ?, name = ?, sort_order = ? WHERE id = ?').run(section_id, name, sort_order, id);
+
+        // Build dynamic update query for partial updates
+        const updates: string[] = [];
+        const values: (string | number)[] = [];
+
+        if (section_id !== undefined) {
+          updates.push('section_id = ?');
+          values.push(section_id);
+        }
+        if (name !== undefined) {
+          updates.push('name = ?');
+          values.push(name);
+        }
+        if (sort_order !== undefined) {
+          updates.push('sort_order = ?');
+          values.push(sort_order);
+        }
+
+        if (updates.length > 0) {
+          values.push(Number(id));
+          db.prepare(`UPDATE groups SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        }
+
         const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(id);
         res.json(group);
       });
@@ -228,7 +272,29 @@ function startServer(): Promise<void> {
       expressApp.put('/api/components/:id', (req, res) => {
         const { id } = req.params;
         const { group_id, name, sort_order } = req.body;
-        db.prepare('UPDATE components SET group_id = ?, name = ?, sort_order = ? WHERE id = ?').run(group_id, name, sort_order, id);
+
+        // Build dynamic update query for partial updates
+        const updates: string[] = [];
+        const values: (string | number)[] = [];
+
+        if (group_id !== undefined) {
+          updates.push('group_id = ?');
+          values.push(group_id);
+        }
+        if (name !== undefined) {
+          updates.push('name = ?');
+          values.push(name);
+        }
+        if (sort_order !== undefined) {
+          updates.push('sort_order = ?');
+          values.push(sort_order);
+        }
+
+        if (updates.length > 0) {
+          values.push(Number(id));
+          db.prepare(`UPDATE components SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        }
+
         const component = db.prepare('SELECT * FROM components WHERE id = ?').get(id);
         res.json(component);
       });
