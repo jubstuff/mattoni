@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Mattoni - Personal Finance Budgeting",
   "main": "dist/main.js",
-  "author": "Personal Budget",
+  "author": "Mattoni",
   "license": "MIT",
   "scripts": {
     "postinstall": "electron-rebuild",

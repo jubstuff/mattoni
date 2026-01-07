@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mattoni - Personal Budget App</title>
+  <meta name="description" content="Budget like you're building a house. Brick by brick. A simple, private, open-source budgeting app for your household.">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            terracotta: {
+              DEFAULT: '#C75B39',
+              dark: '#A64830',
+              light: '#E8A090',
+            },
+            cream: '#F5EDE8',
+            warm: {
+              dark: '#2D2926',
+              medium: '#6B5B54',
+              light: '#E5DDD8',
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Feather Icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
+</head>
+<body class="bg-cream text-warm-dark">
+
+  <!-- Hero Section -->
+  <section class="flex flex-col">
+    <!-- Nav -->
+    <nav class="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
+      <div class="flex items-center gap-3">
+        <img src="assets/icon.svg" alt="Mattoni" class="w-10 h-10">
+        <span class="text-xl font-semibold">Mattoni</span>
+      </div>
+      <a href="https://github.com/jubstuff/mattoni"
+         target="_blank"
+         class="flex items-center gap-2 text-warm-medium hover:text-terracotta transition-colors">
+        <i data-feather="github" class="w-5 h-5"></i>
+        <span class="hidden sm:inline">View on GitHub</span>
+      </a>
+    </nav>
+
+    <!-- Hero Content -->
+    <div class="flex flex-col items-center justify-center px-6 pt-12 pb-8 sm:pt-16 sm:pb-12 text-center">
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold max-w-3xl leading-tight mb-6">
+        Budget like you're building a house.
+        <span class="text-terracotta">Brick by brick.</span>
+      </h1>
+
+      <p class="text-lg sm:text-xl text-warm-medium max-w-xl mb-8">
+        A simple, private budgeting app for your household.
+        Track income and expenses month by month. No cloud, no fuss.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4">
+        <a href="https://github.com/jubstuff/mattoni/releases"
+           target="_blank"
+           class="inline-flex items-center justify-center gap-2 bg-terracotta hover:bg-terracotta-dark text-white px-8 py-4 rounded-lg font-semibold transition-colors">
+          <i data-feather="download" class="w-5 h-5"></i>
+          Get Mattoni
+        </a>
+        <a href="#features"
+           class="inline-flex items-center justify-center gap-2 border-2 border-warm-light hover:border-terracotta text-warm-dark px-8 py-4 rounded-lg font-semibold transition-colors">
+          Learn more
+          <i data-feather="arrow-down" class="w-5 h-5"></i>
+        </a>
+      </div>
+
+      <p class="text-sm text-warm-medium mt-4">
+        macOS only for now. Free and open source.
+      </p>
+    </div>
+
+    <!-- Screenshot Section (integrated with hero) -->
+    <div class="px-6 pb-16">
+      <div class="max-w-5xl mx-auto">
+        <div class="bg-warm-dark rounded-2xl p-3 sm:p-4 shadow-2xl">
+          <div class="bg-cream rounded-lg aspect-video flex items-center justify-center overflow-hidden">
+            <img src="assets/demo.gif" alt="Mattoni app demo" class="rounded-lg w-full h-full object-cover"
+                 onerror="this.parentElement.innerHTML='<p class=\'text-warm-medium\'>App screenshot coming soon</p>'">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-20 px-6 bg-gradient-to-b from-cream to-white">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
+        Simple by design
+      </h2>
+      <p class="text-warm-medium text-center max-w-2xl mx-auto mb-16">
+        No complicated features you'll never use. Just the essentials to keep your household finances on track.
+      </p>
+
+      <div class="grid sm:grid-cols-2 gap-8">
+        <!-- Feature 1: Privacy -->
+        <div class="bg-cream rounded-xl p-8">
+          <div class="w-12 h-12 bg-terracotta/10 rounded-lg flex items-center justify-center mb-4">
+            <i data-feather="shield" class="w-6 h-6 text-terracotta"></i>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Privacy-first</h3>
+          <p class="text-warm-medium">
+            Your data stays on your device. No cloud, no tracking, no surprises.
+            It's your money, it's your business.
+          </p>
+        </div>
+
+        <!-- Feature 2: Simple -->
+        <div class="bg-cream rounded-xl p-8">
+          <div class="w-12 h-12 bg-terracotta/10 rounded-lg flex items-center justify-center mb-4">
+            <i data-feather="bar-chart-2" class="w-6 h-6 text-terracotta"></i>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Simple budgeting</h3>
+          <p class="text-warm-medium">
+            Track income and expenses month by month.
+            No MBA required, no spreadsheet nightmares.
+          </p>
+        </div>
+
+        <!-- Feature 3: Open Source -->
+        <div class="bg-cream rounded-xl p-8">
+          <div class="w-12 h-12 bg-terracotta/10 rounded-lg flex items-center justify-center mb-4">
+            <i data-feather="heart" class="w-6 h-6 text-terracotta"></i>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Free & open source</h3>
+          <p class="text-warm-medium">
+            MIT licensed. Fork it, tweak it, make it yours.
+            Built with love, shared with everyone.
+          </p>
+        </div>
+
+        <!-- Feature 4: Offline -->
+        <div class="bg-cream rounded-xl p-8">
+          <div class="w-12 h-12 bg-terracotta/10 rounded-lg flex items-center justify-center mb-4">
+            <i data-feather="monitor" class="w-6 h-6 text-terracotta"></i>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Works offline</h3>
+          <p class="text-warm-medium">
+            Native macOS app that works without internet.
+            Your budget doesn't need Wi-Fi.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA Section -->
+  <section class="py-20 px-6 bg-warm-dark text-white">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+        Ready to take control of your finances?
+      </h2>
+      <p class="text-warm-light text-lg mb-10">
+        Start building your budget today. One brick at a time.
+      </p>
+
+      <a href="https://github.com/jubstuff/mattoni/releases"
+         target="_blank"
+         class="inline-flex items-center justify-center gap-2 bg-terracotta hover:bg-terracotta-dark text-white px-10 py-5 rounded-lg font-semibold text-lg transition-colors">
+        <i data-feather="download" class="w-6 h-6"></i>
+        Download for macOS
+      </a>
+
+      <p class="text-warm-medium text-sm mt-6">
+        Windows and Linux versions coming soon.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 px-6 bg-warm-dark text-warm-medium border-t border-warm-medium/20">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <img src="assets/icon.svg" alt="Mattoni" class="w-6 h-6">
+        <span>Mattoni</span>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/jubstuff/mattoni"
+           target="_blank"
+           class="hover:text-white transition-colors flex items-center gap-2">
+          <i data-feather="github" class="w-4 h-4"></i>
+          GitHub
+        </a>
+        <a href="https://github.com/jubstuff/mattoni/blob/main/LICENSE"
+           target="_blank"
+           class="hover:text-white transition-colors">
+          MIT License
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Initialize Feather Icons -->
+  <script>
+    feather.replace();
+  </script>
+</body>
+</html>
