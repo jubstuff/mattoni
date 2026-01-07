@@ -72,7 +72,7 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Personal Budget</h1>
+        <h1>Mattoni</h1>
         <YearSelector year={selectedYear} onYearChange={setSelectedYear} />
       </header>
       <div className="app-content">

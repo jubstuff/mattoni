@@ -5,18 +5,18 @@
 }
 
 :root {
-  --sidebar-bg: #1e2a3a;
+  --sidebar-bg: #2D2926;
   --sidebar-text: #ffffff;
-  --sidebar-hover: #2d3f54;
-  --main-bg: #ffffff;
-  --header-bg: #f5f7fa;
-  --border-color: #e0e4e8;
-  --text-primary: #1e2a3a;
-  --text-secondary: #6b7280;
-  --income-color: #1e2a3a;
-  --expense-color: #dc2626;
-  --accent-color: #3b82f6;
-  --row-hover: #f9fafb;
+  --sidebar-hover: #4A3F3A;
+  --main-bg: #F5EDE8;
+  --header-bg: #EDE5DF;
+  --border-color: #E5DDD8;
+  --text-primary: #2D2926;
+  --text-secondary: #6B5B54;
+  --income-color: #4A7C59;
+  --expense-color: #B54A4A;
+  --accent-color: #C75B39;
+  --row-hover: #F0E8E2;
 }
 
 body {

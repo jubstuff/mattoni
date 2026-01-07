@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C75B39"/>
+      <stop offset="100%" style="stop-color:#A64830"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="32" y="32" width="448" height="448" rx="80" ry="80" fill="url(#bg)"/>
+
+  <!-- Brick pattern - 3 rows of stacked bricks -->
+  <!-- Row 1 (top) - 2 bricks -->
+  <rect x="96" y="128" width="140" height="64" rx="8" fill="#F5EDE8" opacity="0.95"/>
+  <rect x="252" y="128" width="164" height="64" rx="8" fill="#F5EDE8" opacity="0.95"/>
+
+  <!-- Row 2 (middle) - 2 bricks offset -->
+  <rect x="96" y="208" width="180" height="64" rx="8" fill="#F5EDE8" opacity="0.9"/>
+  <rect x="292" y="208" width="124" height="64" rx="8" fill="#F5EDE8" opacity="0.9"/>
+
+  <!-- Row 3 (bottom) - 2 bricks -->
+  <rect x="96" y="288" width="120" height="64" rx="8" fill="#F5EDE8" opacity="0.85"/>
+  <rect x="232" y="288" width="184" height="64" rx="8" fill="#F5EDE8" opacity="0.85"/>
+</svg>

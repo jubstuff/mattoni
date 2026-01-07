@@ -47,7 +47,15 @@
   text-align: left !important;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.name-cell.indent-1 {
+  padding-left: 24px;
+}
+
+.name-cell.indent-2 {
+  padding-left: 48px;
 }
 
 .toggle-btn {
@@ -55,8 +63,8 @@
   border: none;
   color: var(--text-secondary);
   padding: 0;
-  width: 20px;
-  font-size: 10px;
+  width: 16px;
+  font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -65,48 +73,43 @@
   color: var(--accent-color);
 }
 
-.toggle-btn.indent-1 {
-  margin-left: 20px;
-}
-
 .section-name {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
 .section-name.income {
-  color: #16a34a;
+  color: var(--text-primary);
 }
 
 .section-name.expense {
-  color: var(--expense-color);
+  color: var(--text-primary);
 }
 
 .group-name {
-  font-weight: 500;
-  margin-left: 20px;
+  font-weight: 400;
   color: var(--text-primary);
 }
 
 .component-name {
-  margin-left: 60px;
   color: var(--text-secondary);
+  font-weight: 400;
 }
 
 .section-row {
-  background-color: #f9fafb;
+  background-color: #fff;
 }
 
 .section-row:hover {
-  background-color: #f3f4f6;
+  background-color: #f9fafb;
 }
 
 .group-row {
-  background-color: #fafbfc;
+  background-color: #fff;
 }
 
 .group-row:hover {
-  background-color: #f5f6f7;
+  background-color: #f9fafb;
 }
 
 .component-row:hover {
@@ -124,12 +127,36 @@
 
 .value-cell.total {
   background-color: #f8fafc;
-  font-weight: 500;
 }
 
-.grand-total-row {
-  background-color: #e2e8f0;
+/* Bold totals */
+.value-cell.total-value {
   font-weight: 600;
+}
+
+/* Group total row */
+.group-total-row {
+  background-color: #fff;
+}
+
+.group-total-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Section total row */
+.section-total-row {
+  background-color: #f9fafb;
+}
+
+.section-total-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Grand total row */
+.grand-total-row {
+  background-color: #e8edf2;
 }
 
 .grand-total-row td {
@@ -138,6 +165,7 @@
 
 .grand-total-name {
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* Nested tbody fix for valid HTML */

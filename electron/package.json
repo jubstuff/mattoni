@@ -1,0 +1,54 @@
+{
+  "name": "mattoni",
+  "version": "1.0.0",
+  "description": "Mattoni - Personal Finance Budgeting",
+  "main": "dist/main.js",
+  "author": "Personal Budget",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "electron-rebuild",
+    "dev": "tsc && electron .",
+    "build": "tsc",
+    "dist": "npm run build && electron-builder --mac"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "com.mattoni.app",
+    "productName": "Mattoni",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../client/dist",
+        "to": "client"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": ["dmg"],
+      "icon": "icons/icon.icns"
+    },
+    "dmg": {
+      "title": "Mattoni"
+    }
+  }
+}

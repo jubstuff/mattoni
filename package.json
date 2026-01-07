@@ -1,7 +1,7 @@
 {
-  "name": "personal-budget",
+  "name": "mattoni",
   "version": "1.0.0",
-  "description": "A simple, self-hosted personal finance budgeting application",
+  "description": "Mattoni - Personal finance budgeting, brick by brick",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
@@ -11,7 +11,10 @@
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
     "start": "cd server && npm start",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "electron:install": "cd electron && npm install",
+    "electron:dev": "npm run build:client && cd electron && npm run dev",
+    "electron:dist": "npm run build:client && cd electron && npm run dist"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

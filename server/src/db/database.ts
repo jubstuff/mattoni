@@ -50,44 +50,42 @@ export function seedDatabase() {
     const insertSection = db.prepare('INSERT INTO sections (name, type, sort_order) VALUES (?, ?, ?)');
     const insertGroup = db.prepare('INSERT INTO groups (section_id, name, sort_order) VALUES (?, ?, ?)');
     const insertComponent = db.prepare('INSERT INTO components (group_id, name, sort_order) VALUES (?, ?, ?)');
-    const insertValue = db.prepare('INSERT INTO budget_values (component_id, year, month, amount) VALUES (?, ?, ?, ?)');
 
     const transaction = db.transaction(() => {
       // Income section
-      const incomeResult = insertSection.run('Revenues', 'income', 1);
+      const incomeResult = insertSection.run('Income', 'income', 1);
       const incomeId = incomeResult.lastInsertRowid;
 
-      // Salary group
-      const salaryGroupResult = insertGroup.run(incomeId, 'Salary', 1);
-      const salaryGroupId = salaryGroupResult.lastInsertRowid;
+      const employmentGroup = insertGroup.run(incomeId, 'Employment', 1);
+      insertComponent.run(employmentGroup.lastInsertRowid, 'Salary', 1);
+      insertComponent.run(employmentGroup.lastInsertRowid, 'Bonus', 2);
 
-      const jobResult = insertComponent.run(salaryGroupId, 'Main Job', 1);
-      const jobId = jobResult.lastInsertRowid;
+      const otherIncomeGroup = insertGroup.run(incomeId, 'Other Income', 2);
+      insertComponent.run(otherIncomeGroup.lastInsertRowid, 'Side Jobs', 1);
+      insertComponent.run(otherIncomeGroup.lastInsertRowid, 'Investments', 2);
 
-      // Add sample values for 2025
-      for (let month = 1; month <= 12; month++) {
-        insertValue.run(jobId, 2025, month, 3000);
-      }
-
-      // Expense section
-      const expenseResult = insertSection.run('Costs', 'expense', 2);
+      // Expenses section
+      const expenseResult = insertSection.run('Expenses', 'expense', 2);
       const expenseId = expenseResult.lastInsertRowid;
 
-      // Housing group
-      const housingGroupResult = insertGroup.run(expenseId, 'Housing', 1);
-      const housingGroupId = housingGroupResult.lastInsertRowid;
+      const housingGroup = insertGroup.run(expenseId, 'Housing', 1);
+      insertComponent.run(housingGroup.lastInsertRowid, 'Rent/Mortgage', 1);
+      insertComponent.run(housingGroup.lastInsertRowid, 'Utilities', 2);
+      insertComponent.run(housingGroup.lastInsertRowid, 'Home Insurance', 3);
 
-      const rentResult = insertComponent.run(housingGroupId, 'Rent', 1);
-      const rentId = rentResult.lastInsertRowid;
+      const transportGroup = insertGroup.run(expenseId, 'Transportation', 2);
+      insertComponent.run(transportGroup.lastInsertRowid, 'Car Payment', 1);
+      insertComponent.run(transportGroup.lastInsertRowid, 'Gas', 2);
+      insertComponent.run(transportGroup.lastInsertRowid, 'Car Insurance', 3);
 
-      const utilitiesResult = insertComponent.run(housingGroupId, 'Utilities', 2);
-      const utilitiesId = utilitiesResult.lastInsertRowid;
+      const foodGroup = insertGroup.run(expenseId, 'Food', 3);
+      insertComponent.run(foodGroup.lastInsertRowid, 'Groceries', 1);
+      insertComponent.run(foodGroup.lastInsertRowid, 'Dining Out', 2);
 
-      // Add sample values for 2025
-      for (let month = 1; month <= 12; month++) {
-        insertValue.run(rentId, 2025, month, 1200);
-        insertValue.run(utilitiesId, 2025, month, 150);
-      }
+      const personalGroup = insertGroup.run(expenseId, 'Personal', 4);
+      insertComponent.run(personalGroup.lastInsertRowid, 'Subscriptions', 1);
+      insertComponent.run(personalGroup.lastInsertRowid, 'Entertainment', 2);
+      insertComponent.run(personalGroup.lastInsertRowid, 'Healthcare', 3);
     });
 
     transaction();

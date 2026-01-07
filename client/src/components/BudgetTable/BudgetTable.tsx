@@ -115,85 +115,135 @@ export function BudgetTable({ sections, budgetValues, year }: BudgetTableProps) 
           {sections.map((section) => {
             const sectionYearTotal = Object.values(sectionTotals[section.id] || {}).reduce((a, b) => a + b, 0);
             const isExpense = section.type === 'expense';
+            const isSectionExpanded = expandedSections.has(section.id);
 
             return (
               <tbody key={section.id} className="section-group">
-                {/* Section row */}
+                {/* Section header row */}
                 <tr className="section-row">
                   <td className="name-cell">
                     <button className="toggle-btn" onClick={() => toggleSection(section.id)}>
-                      {expandedSections.has(section.id) ? '▼' : '▶'}
+                      {isSectionExpanded ? '▾' : '▸'}
                     </button>
                     <span className={`section-name ${section.type}`}>{section.name}</span>
                   </td>
-                  {MONTHS.map((_, idx) => {
+                  {!isSectionExpanded && MONTHS.map((_, idx) => {
                     const value = sectionTotals[section.id]?.[idx + 1] || 0;
                     return (
-                      <td key={idx} className={`value-cell ${value < 0 ? 'expense' : ''}`}>
+                      <td key={idx} className={`value-cell total-value ${value < 0 ? 'expense' : ''}`}>
                         {formatCurrency(Math.abs(value), value < 0)}
                       </td>
                     );
                   })}
-                  <td className={`value-cell total ${sectionYearTotal < 0 ? 'expense' : ''}`}>
-                    {formatCurrency(Math.abs(sectionYearTotal), sectionYearTotal < 0)}
-                  </td>
+                  {!isSectionExpanded && (
+                    <td className={`value-cell total total-value ${sectionYearTotal < 0 ? 'expense' : ''}`}>
+                      {formatCurrency(Math.abs(sectionYearTotal), sectionYearTotal < 0)}
+                    </td>
+                  )}
+                  {isSectionExpanded && <td colSpan={13}></td>}
                 </tr>
 
-                {expandedSections.has(section.id) &&
+                {isSectionExpanded &&
                   section.groups.map((group) => {
                     const groupYearTotal = Object.values(groupTotals[group.id] || {}).reduce((a, b) => a + b, 0);
+                    const isGroupExpanded = expandedGroups.has(group.id);
 
                     return (
                       <tbody key={group.id} className="group-section">
-                        {/* Group row */}
-                        <tr className="group-row">
-                          <td className="name-cell">
-                            <button className="toggle-btn indent-1" onClick={() => toggleGroup(group.id)}>
-                              {expandedGroups.has(group.id) ? '▼' : '▶'}
+                        {/* Group header row - shows totals when collapsed */}
+                        <tr className={`group-row ${!isGroupExpanded ? 'collapsed' : ''}`}>
+                          <td className="name-cell indent-1">
+                            <button className="toggle-btn" onClick={() => toggleGroup(group.id)}>
+                              {isGroupExpanded ? '▾' : '▸'}
                             </button>
                             <span className="group-name">{group.name}</span>
                           </td>
-                          {MONTHS.map((_, idx) => {
+                          {!isGroupExpanded && MONTHS.map((_, idx) => {
                             const value = groupTotals[group.id]?.[idx + 1] || 0;
                             return (
-                              <td key={idx} className={`value-cell ${value < 0 ? 'expense' : ''}`}>
+                              <td key={idx} className={`value-cell total-value ${value < 0 ? 'expense' : ''}`}>
                                 {formatCurrency(Math.abs(value), value < 0)}
                               </td>
                             );
                           })}
-                          <td className={`value-cell total ${groupYearTotal < 0 ? 'expense' : ''}`}>
-                            {formatCurrency(Math.abs(groupYearTotal), groupYearTotal < 0)}
-                          </td>
+                          {!isGroupExpanded && (
+                            <td className={`value-cell total total-value ${groupYearTotal < 0 ? 'expense' : ''}`}>
+                              {formatCurrency(Math.abs(groupYearTotal), groupYearTotal < 0)}
+                            </td>
+                          )}
+                          {isGroupExpanded && <td colSpan={13}></td>}
                         </tr>
 
-                        {expandedGroups.has(group.id) &&
-                          group.components.map((component) => {
-                            const componentYearTotal = Array.from({ length: 12 }, (_, i) =>
-                              getComponentValue(component.id, i + 1)
-                            ).reduce((a, b) => a + b, 0);
+                        {isGroupExpanded && (
+                          <>
+                            {/* Component rows */}
+                            {group.components.map((component) => {
+                              const componentYearTotal = Array.from({ length: 12 }, (_, i) =>
+                                getComponentValue(component.id, i + 1)
+                              ).reduce((a, b) => a + b, 0);
 
-                            return (
-                              <tr key={component.id} className="component-row">
-                                <td className="name-cell">
-                                  <span className="component-name">{component.name}</span>
-                                </td>
-                                {MONTHS.map((_, idx) => {
-                                  const value = getComponentValue(component.id, idx + 1);
-                                  return (
-                                    <td key={idx} className={`value-cell ${isExpense ? 'expense' : ''}`}>
-                                      {formatCurrency(value, isExpense)}
-                                    </td>
-                                  );
-                                })}
-                                <td className={`value-cell total ${isExpense ? 'expense' : ''}`}>
-                                  {formatCurrency(componentYearTotal, isExpense)}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                              return (
+                                <tr key={component.id} className="component-row">
+                                  <td className="name-cell indent-2">
+                                    <span className="component-name">{component.name}</span>
+                                  </td>
+                                  {MONTHS.map((_, idx) => {
+                                    const value = getComponentValue(component.id, idx + 1);
+                                    return (
+                                      <td key={idx} className={`value-cell ${isExpense && value > 0 ? 'expense' : ''}`}>
+                                        {value === 0 ? '' : formatCurrency(value, isExpense)}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className={`value-cell total ${isExpense && componentYearTotal > 0 ? 'expense' : ''}`}>
+                                    {componentYearTotal === 0 ? '' : formatCurrency(componentYearTotal, isExpense)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {/* Group total row at bottom */}
+                            <tr className="group-total-row">
+                              <td className="name-cell indent-2">
+                                <span className="group-total-name">Total of {group.name}</span>
+                              </td>
+                              {MONTHS.map((_, idx) => {
+                                const value = groupTotals[group.id]?.[idx + 1] || 0;
+                                return (
+                                  <td key={idx} className={`value-cell total-value ${value < 0 ? 'expense' : ''}`}>
+                                    {formatCurrency(Math.abs(value), value < 0)}
+                                  </td>
+                                );
+                              })}
+                              <td className={`value-cell total total-value ${groupYearTotal < 0 ? 'expense' : ''}`}>
+                                {formatCurrency(Math.abs(groupYearTotal), groupYearTotal < 0)}
+                              </td>
+                            </tr>
+                          </>
+                        )}
                       </tbody>
                     );
                   })}
+
+                {/* Section total row at bottom when expanded */}
+                {isSectionExpanded && (
+                  <tr className="section-total-row">
+                    <td className="name-cell indent-1">
+                      <span className="section-total-name">Total of {section.name}</span>
+                    </td>
+                    {MONTHS.map((_, idx) => {
+                      const value = sectionTotals[section.id]?.[idx + 1] || 0;
+                      return (
+                        <td key={idx} className={`value-cell total-value ${value < 0 ? 'expense' : ''}`}>
+                          {formatCurrency(Math.abs(value), value < 0)}
+                        </td>
+                      );
+                    })}
+                    <td className={`value-cell total total-value ${sectionYearTotal < 0 ? 'expense' : ''}`}>
+                      {formatCurrency(Math.abs(sectionYearTotal), sectionYearTotal < 0)}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             );
           })}
@@ -206,12 +256,12 @@ export function BudgetTable({ sections, budgetValues, year }: BudgetTableProps) 
             {MONTHS.map((_, idx) => {
               const value = grandTotals[idx + 1] || 0;
               return (
-                <td key={idx} className={`value-cell ${value < 0 ? 'expense' : ''}`}>
+                <td key={idx} className={`value-cell total-value ${value < 0 ? 'expense' : ''}`}>
                   {formatCurrency(Math.abs(value), value < 0)}
                 </td>
               );
             })}
-            <td className={`value-cell total ${Object.values(grandTotals).reduce((a, b) => a + b, 0) < 0 ? 'expense' : ''}`}>
+            <td className={`value-cell total total-value ${Object.values(grandTotals).reduce((a, b) => a + b, 0) < 0 ? 'expense' : ''}`}>
               {formatCurrency(
                 Math.abs(Object.values(grandTotals).reduce((a, b) => a + b, 0)),
                 Object.values(grandTotals).reduce((a, b) => a + b, 0) < 0
