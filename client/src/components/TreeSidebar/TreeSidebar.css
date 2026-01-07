@@ -1,0 +1,168 @@
+.tree-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+}
+
+.tree-content {
+  padding: 12px;
+}
+
+.tree-section {
+  margin-bottom: 4px;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.tree-item:hover {
+  background-color: var(--sidebar-hover);
+}
+
+.tree-item-section {
+  font-weight: 600;
+}
+
+.tree-item-group {
+  padding-left: 20px;
+  font-weight: 500;
+}
+
+.tree-item-component {
+  padding-left: 40px;
+  font-weight: 400;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.tree-item-component.selected {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.tree-item-component.selected:hover {
+  background-color: var(--accent-color);
+}
+
+.tree-toggle {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  width: 16px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.tree-toggle:hover {
+  color: var(--accent-color);
+}
+
+.tree-name {
+  flex: 1;
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-name.income {
+  color: #4ade80;
+}
+
+.tree-name.expense {
+  color: #f87171;
+}
+
+.tree-type-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.tree-action-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tree-item:hover .tree-action-btn {
+  opacity: 1;
+}
+
+.tree-action-btn:hover {
+  color: #ef4444;
+}
+
+.tree-action-btn.delete {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.tree-children {
+  margin-left: 8px;
+}
+
+.tree-edit-input,
+.tree-add-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tree-edit-input:focus,
+.tree-add-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.tree-add-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px 6px 40px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.tree-add-btn:hover {
+  color: var(--accent-color);
+}
+
+.tree-add-section-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+.tree-add-section-btn:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}

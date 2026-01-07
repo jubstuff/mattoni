@@ -1,0 +1,38 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --sidebar-bg: #1e2a3a;
+  --sidebar-text: #ffffff;
+  --sidebar-hover: #2d3f54;
+  --main-bg: #ffffff;
+  --header-bg: #f5f7fa;
+  --border-color: #e0e4e8;
+  --text-primary: #1e2a3a;
+  --text-secondary: #6b7280;
+  --income-color: #1e2a3a;
+  --expense-color: #dc2626;
+  --accent-color: #3b82f6;
+  --row-hover: #f9fafb;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--main-bg);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input {
+  font-family: inherit;
+  font-size: inherit;
+}
