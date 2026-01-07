@@ -173,3 +173,90 @@
 .group-section {
   display: contents;
 }
+
+/* Note indicator and tooltip */
+.value-cell.has-note {
+  position: relative;
+}
+
+.note-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent var(--accent-color) transparent transparent;
+}
+
+.note-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--sidebar-bg);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  max-width: 250px;
+  min-width: 150px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.note-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--sidebar-bg) transparent transparent transparent;
+}
+
+.value-cell.has-note:hover .note-tooltip {
+  display: block;
+}
+
+/* Markdown styles in tooltip */
+.note-tooltip p {
+  margin: 0 0 8px 0;
+}
+
+.note-tooltip p:last-child {
+  margin-bottom: 0;
+}
+
+.note-tooltip strong {
+  font-weight: 600;
+}
+
+.note-tooltip em {
+  font-style: italic;
+}
+
+.note-tooltip ul,
+.note-tooltip ol {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.note-tooltip li {
+  margin: 2px 0;
+}
+
+.note-tooltip code {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}

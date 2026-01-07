@@ -1,4 +1,4 @@
-import type { Section, BudgetValues, MonthlyValues } from '../types';
+import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes } from '../types';
 
 const API_BASE = '/api';
 
@@ -103,4 +103,20 @@ export async function updateBudgetValues(componentId: number, year: number, valu
 
 export async function getComponentBudgetValues(componentId: number, year: number): Promise<MonthlyValues> {
   return fetchJSON<MonthlyValues>(`/budget/component/${componentId}/${year}`);
+}
+
+// Notes
+export async function getNotes(year: number): Promise<Notes> {
+  return fetchJSON<Notes>(`/notes/${year}`);
+}
+
+export async function updateNotes(componentId: number, year: number, notes: MonthlyNotes): Promise<void> {
+  return fetchJSON(`/notes/component/${componentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ year, notes }),
+  });
+}
+
+export async function getComponentNotes(componentId: number, year: number): Promise<MonthlyNotes> {
+  return fetchJSON<MonthlyNotes>(`/notes/component/${componentId}/${year}`);
 }

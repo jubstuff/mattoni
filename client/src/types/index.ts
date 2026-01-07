@@ -26,3 +26,10 @@ export type BudgetValues = Record<number, Record<number, number>>;
 export interface MonthlyValues {
   [month: number]: number;
 }
+
+// Notes: componentId -> month -> note text
+export type Notes = Record<number, Record<number, string>>;
+
+export interface MonthlyNotes {
+  [month: number]: string;
+}

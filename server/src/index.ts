@@ -7,6 +7,7 @@ import sectionsRouter from './routes/sections.js';
 import groupsRouter from './routes/groups.js';
 import componentsRouter from './routes/components.js';
 import budgetRouter from './routes/budget.js';
+import notesRouter from './routes/notes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/sections', sectionsRouter);
 app.use('/api/groups', groupsRouter);
 app.use('/api/components', componentsRouter);
 app.use('/api/budget', budgetRouter);
+app.use('/api/notes', notesRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -3,13 +3,14 @@ import { TreeSidebar } from './components/TreeSidebar/TreeSidebar';
 import { BudgetTable } from './components/BudgetTable/BudgetTable';
 import { EditDrawer } from './components/EditDrawer/EditDrawer';
 import { YearSelector } from './components/YearSelector/YearSelector';
-import { getSections, getBudgetValues } from './api/client';
-import type { Section, BudgetValues, Component } from './types';
+import { getSections, getBudgetValues, getNotes } from './api/client';
+import type { Section, BudgetValues, Component, Notes } from './types';
 import './App.css';
 
 function App() {
   const [sections, setSections] = useState<Section[]>([]);
   const [budgetValues, setBudgetValues] = useState<BudgetValues>({});
+  const [notes, setNotes] = useState<Notes>({});
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,12 +21,14 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-      const [sectionsData, valuesData] = await Promise.all([
+      const [sectionsData, valuesData, notesData] = await Promise.all([
         getSections(),
         getBudgetValues(selectedYear),
+        getNotes(selectedYear),
       ]);
       setSections(sectionsData);
       setBudgetValues(valuesData);
+      setNotes(notesData);
     } catch (err) {
       setError('Failed to load data. Make sure the server is running.');
       console.error('Error fetching data:', err);
@@ -93,6 +96,7 @@ function App() {
           <BudgetTable
             sections={sections}
             budgetValues={budgetValues}
+            notes={notes}
             year={selectedYear}
           />
         </main>

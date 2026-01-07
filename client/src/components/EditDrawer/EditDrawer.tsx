@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Component, Section, MonthlyValues } from '../../types';
-import { getComponentBudgetValues, updateBudgetValues } from '../../api/client';
+import type { Component, Section, MonthlyValues, MonthlyNotes } from '../../types';
+import { getComponentBudgetValues, updateBudgetValues, getComponentNotes, updateNotes } from '../../api/client';
 import './EditDrawer.css';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -15,19 +15,23 @@ interface EditDrawerProps {
 
 export function EditDrawer({ component, section, year, onClose, onValuesChange }: EditDrawerProps) {
   const [values, setValues] = useState<MonthlyValues>({});
+  const [componentNotes, setComponentNotes] = useState<MonthlyNotes>({});
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [hasNoteChanges, setHasNoteChanges] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Use refs to track values for auto-save without causing re-renders
   const previousComponentIdRef = useRef<number | null>(null);
   const valuesRef = useRef<MonthlyValues>({});
+  const notesRef = useRef<MonthlyNotes>({});
   const hasChangesRef = useRef(false);
+  const hasNoteChangesRef = useRef(false);
   const yearRef = useRef(year);
 
   // Keep refs in sync
@@ -36,8 +40,16 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
   }, [values]);
 
   useEffect(() => {
+    notesRef.current = componentNotes;
+  }, [componentNotes]);
+
+  useEffect(() => {
     hasChangesRef.current = hasChanges;
   }, [hasChanges]);
+
+  useEffect(() => {
+    hasNoteChangesRef.current = hasNoteChanges;
+  }, [hasNoteChanges]);
 
   useEffect(() => {
     yearRef.current = year;
@@ -53,32 +65,54 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     }
   }, [onValuesChange]);
 
+  const saveNotes = useCallback(async (componentId: number, notesToSave: MonthlyNotes, currentYear: number) => {
+    try {
+      await updateNotes(componentId, currentYear, notesToSave);
+      onValuesChange();
+    } catch (err) {
+      console.error('Error saving notes:', err);
+    }
+  }, [onValuesChange]);
+
   // Load values when component changes
   useEffect(() => {
     const previousId = previousComponentIdRef.current;
     const currentId = component?.id ?? null;
 
-    // Save previous component's values if there were changes
-    if (previousId !== null && previousId !== currentId && hasChangesRef.current) {
-      saveValues(previousId, valuesRef.current, yearRef.current);
+    // Save previous component's values and notes if there were changes
+    if (previousId !== null && previousId !== currentId) {
+      if (hasChangesRef.current) {
+        saveValues(previousId, valuesRef.current, yearRef.current);
+      }
+      if (hasNoteChangesRef.current) {
+        saveNotes(previousId, notesRef.current, yearRef.current);
+      }
     }
 
     // Update ref
     previousComponentIdRef.current = currentId;
     setHasChanges(false);
+    setHasNoteChanges(false);
     hasChangesRef.current = false;
+    hasNoteChangesRef.current = false;
 
     if (!component) {
       setValues({});
+      setComponentNotes({});
       return;
     }
 
-    // Load new component's values
+    // Load new component's values and notes
     setLoading(true);
-    getComponentBudgetValues(component.id, year)
-      .then((data) => {
-        setValues(data);
-        valuesRef.current = data;
+    Promise.all([
+      getComponentBudgetValues(component.id, year),
+      getComponentNotes(component.id, year),
+    ])
+      .then(([valuesData, notesData]) => {
+        setValues(valuesData);
+        valuesRef.current = valuesData;
+        setComponentNotes(notesData);
+        notesRef.current = notesData;
       })
       .catch((err) => {
         console.error('Error loading values:', err);
@@ -86,15 +120,26 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
       .finally(() => {
         setLoading(false);
       });
-  }, [component?.id, year, saveValues]);
+  }, [component?.id, year, saveValues, saveNotes]);
 
   // Save on unmount or when closing
   useEffect(() => {
     return () => {
-      if (previousComponentIdRef.current !== null && hasChangesRef.current) {
-        updateBudgetValues(previousComponentIdRef.current, yearRef.current, valuesRef.current)
-          .then(onValuesChange)
-          .catch(console.error);
+      if (previousComponentIdRef.current !== null) {
+        const promises: Promise<void>[] = [];
+        if (hasChangesRef.current) {
+          promises.push(
+            updateBudgetValues(previousComponentIdRef.current, yearRef.current, valuesRef.current)
+          );
+        }
+        if (hasNoteChangesRef.current) {
+          promises.push(
+            updateNotes(previousComponentIdRef.current, yearRef.current, notesRef.current)
+          );
+        }
+        if (promises.length > 0) {
+          Promise.all(promises).then(onValuesChange).catch(console.error);
+        }
       }
     };
   }, [onValuesChange]);
@@ -108,6 +153,16 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     });
     setHasChanges(true);
     hasChangesRef.current = true;
+  };
+
+  const handleNoteChange = (month: number, note: string) => {
+    setComponentNotes((prev) => {
+      const newNotes = { ...prev, [month]: note };
+      notesRef.current = newNotes;
+      return newNotes;
+    });
+    setHasNoteChanges(true);
+    hasNoteChangesRef.current = true;
   };
 
   const focusCell = useCallback((month: number) => {
@@ -307,6 +362,22 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
                 <p className="keyboard-hint">
                   Arrow keys or Tab to navigate • Drag corner to fill • Auto-saves on switch
                 </p>
+
+                {selectedCell && (
+                  <div className="note-section">
+                    <label className="note-label">
+                      Note for {MONTHS[selectedCell - 1]}
+                      {hasNoteChanges && <span className="unsaved-badge">Unsaved</span>}
+                    </label>
+                    <textarea
+                      className="note-textarea"
+                      value={componentNotes[selectedCell] || ''}
+                      onChange={(e) => handleNoteChange(selectedCell, e.target.value)}
+                      placeholder="Add a note for this month (supports markdown)..."
+                      rows={3}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

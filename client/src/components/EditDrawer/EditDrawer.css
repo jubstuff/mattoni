@@ -224,3 +224,45 @@
   color: var(--text-secondary);
   text-align: center;
 }
+
+/* Note Section */
+.note-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.note-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.note-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 80px;
+  background-color: #fafafa;
+}
+
+.note-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background-color: white;
+  box-shadow: 0 0 0 2px rgba(199, 91, 57, 0.1);
+}
+
+.note-textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}

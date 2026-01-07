@@ -1,12 +1,20 @@
 import { useState, useMemo } from 'react';
-import type { Section, BudgetValues } from '../../types';
+import { marked } from 'marked';
+import type { Section, BudgetValues, Notes } from '../../types';
 import './BudgetTable.css';
+
+// Configure marked for inline rendering
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 interface BudgetTableProps {
   sections: Section[];
   budgetValues: BudgetValues;
+  notes: Notes;
   year: number;
 }
 
@@ -25,7 +33,7 @@ function formatCurrency(amount: number, isExpense: boolean): string {
   return formatted;
 }
 
-export function BudgetTable({ sections, budgetValues, year }: BudgetTableProps) {
+export function BudgetTable({ sections, budgetValues, notes, year }: BudgetTableProps) {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set(sections.map((s) => s.id)));
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(
     new Set(sections.flatMap((s) => s.groups.map((g) => g.id)))
@@ -57,6 +65,10 @@ export function BudgetTable({ sections, budgetValues, year }: BudgetTableProps) 
 
   const getComponentValue = (componentId: number, month: number): number => {
     return budgetValues[componentId]?.[month] || 0;
+  };
+
+  const getComponentNote = (componentId: number, month: number): string | undefined => {
+    return notes[componentId]?.[month];
   };
 
   const calculations = useMemo(() => {
@@ -188,10 +200,21 @@ export function BudgetTable({ sections, budgetValues, year }: BudgetTableProps) 
                                     <span className="component-name">{component.name}</span>
                                   </td>
                                   {MONTHS.map((_, idx) => {
-                                    const value = getComponentValue(component.id, idx + 1);
+                                    const month = idx + 1;
+                                    const value = getComponentValue(component.id, month);
+                                    const note = getComponentNote(component.id, month);
                                     return (
-                                      <td key={idx} className={`value-cell ${isExpense && value > 0 ? 'expense' : ''}`}>
+                                      <td key={idx} className={`value-cell ${isExpense && value > 0 ? 'expense' : ''} ${note ? 'has-note' : ''}`}>
                                         {value === 0 ? '' : formatCurrency(value, isExpense)}
+                                        {note && (
+                                          <>
+                                            <span className="note-indicator" />
+                                            <div
+                                              className="note-tooltip"
+                                              dangerouslySetInnerHTML={{ __html: marked.parse(note) as string }}
+                                            />
+                                          </>
+                                        )}
                                       </td>
                                     );
                                   })}

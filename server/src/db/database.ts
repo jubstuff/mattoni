@@ -38,6 +38,17 @@ export function initializeDatabase() {
       amount REAL DEFAULT 0,
       UNIQUE(component_id, year, month)
     );
+
+    CREATE TABLE IF NOT EXISTS budget_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
+      note TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(component_id, year, month)
+    );
   `);
 
   db.pragma('foreign_keys = ON');
