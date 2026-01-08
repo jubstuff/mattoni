@@ -3,11 +3,10 @@ import * as path from 'path';
 import express from 'express';
 import cors from 'cors';
 import Database from 'better-sqlite3';
+import type { AddressInfo } from 'net';
 
 let mainWindow: BrowserWindow | null = null;
 let server: ReturnType<typeof express.application.listen> | null = null;
-
-const PORT = 3001;
 
 // Database setup
 function getDbPath(): string {
@@ -114,7 +113,7 @@ function seedDatabase(db: Database.Database): void {
   insertComponent.run(personalGroup.lastInsertRowid, 'Healthcare', 3);
 }
 
-function startServer(): Promise<void> {
+function startServer(): Promise<number> {
   return new Promise((resolve, reject) => {
     try {
       const expressApp = express();
@@ -487,9 +486,10 @@ function startServer(): Promise<void> {
         res.sendFile(path.join(clientPath, 'index.html'));
       });
 
-      server = expressApp.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-        resolve();
+      server = expressApp.listen(0, () => {
+        const actualPort = (server!.address() as AddressInfo).port;
+        console.log(`Server running on http://localhost:${actualPort}`);
+        resolve(actualPort);
       });
 
       server.on('error', reject);
@@ -499,7 +499,7 @@ function startServer(): Promise<void> {
   });
 }
 
-function createWindow(): void {
+function createWindow(port: number): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -513,7 +513,7 @@ function createWindow(): void {
     show: false,
   });
 
-  mainWindow.loadURL(`http://localhost:${PORT}`);
+  mainWindow.loadURL(`http://localhost:${port}`);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -524,10 +524,12 @@ function createWindow(): void {
   });
 }
 
+let serverPort: number;
+
 app.whenReady().then(async () => {
   try {
-    await startServer();
-    createWindow();
+    serverPort = await startServer();
+    createWindow(serverPort);
   } catch (error) {
     console.error('Failed to start server:', error);
     app.quit();
@@ -541,8 +543,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
+  if (mainWindow === null && serverPort) {
+    createWindow(serverPort);
   }
 });
 
