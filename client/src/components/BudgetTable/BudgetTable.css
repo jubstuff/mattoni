@@ -30,6 +30,11 @@
   text-align: left !important;
   width: 250px;
   min-width: 250px;
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background-color: var(--header-bg);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
 }
 
 .month-column {
@@ -48,6 +53,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: #fff;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
 }
 
 .name-cell.indent-1 {
@@ -149,6 +159,10 @@
   background-color: #f9fafb;
 }
 
+.section-total-row .name-cell {
+  background-color: #f9fafb;
+}
+
 .section-total-name {
   font-weight: 600;
   color: var(--text-primary);
@@ -156,6 +170,10 @@
 
 /* Grand total row */
 .grand-total-row {
+  background-color: #e8edf2;
+}
+
+.grand-total-row .name-cell {
   background-color: #e8edf2;
 }
 
@@ -282,6 +300,10 @@
   background-color: #f0f9ff;
 }
 
+.starting-balance-row .name-cell {
+  background-color: #f0f9ff;
+}
+
 .starting-balance-name {
   font-weight: 600;
   color: var(--accent-color);
@@ -289,6 +311,10 @@
 
 /* Running Balance row (cashflow view) */
 .running-balance-row {
+  background-color: #f0f9ff;
+}
+
+.running-balance-row .name-cell {
   background-color: #f0f9ff;
 }
 
