@@ -1,4 +1,4 @@
-import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes, BudgetMetadata, BudgetsResponse } from '../types';
+import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes, BudgetMetadata, BudgetsResponse, CashflowSettings } from '../types';
 
 const API_BASE = '/api';
 
@@ -181,5 +181,17 @@ export async function renameBudget(id: string, name: string): Promise<BudgetMeta
 export async function deleteBudget(id: string): Promise<void> {
   return fetchJSON<void>(`/budgets/${id}`, {
     method: 'DELETE',
+  });
+}
+
+// Cashflow Settings
+export async function getCashflowSettings(): Promise<CashflowSettings> {
+  return fetchJSON<CashflowSettings>('/cashflow-settings');
+}
+
+export async function updateCashflowSettings(settings: CashflowSettings): Promise<void> {
+  return fetchJSON('/cashflow-settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
   });
 }

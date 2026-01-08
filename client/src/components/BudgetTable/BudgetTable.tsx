@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { marked } from 'marked';
-import type { Section, BudgetValues, Notes } from '../../types';
+import type { Section, BudgetValues, Notes, CashflowSettings } from '../../types';
+import type { ViewMode } from '../ViewToggle/ViewToggle';
 import './BudgetTable.css';
 
 // Configure marked for inline rendering
@@ -17,6 +18,8 @@ interface BudgetTableProps {
   notes: Notes;
   year: number;
   budgetId: string | null;
+  viewMode: ViewMode;
+  cashflowSettings: CashflowSettings;
 }
 
 function formatCurrency(amount: number, isExpense: boolean): string {
@@ -34,7 +37,7 @@ function formatCurrency(amount: number, isExpense: boolean): string {
   return formatted;
 }
 
-export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: BudgetTableProps) {
+export function BudgetTable({ sections, budgetValues, notes, year, budgetId, viewMode, cashflowSettings }: BudgetTableProps) {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const initializedForBudget = useRef<string | null>(null);
@@ -117,6 +120,14 @@ export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: B
     return notes[componentId]?.[month];
   };
 
+  // Check if a month/year is before the starting date
+  const isBeforeStartingDate = (checkYear: number, checkMonth: number): boolean => {
+    const { starting_year, starting_month } = cashflowSettings;
+    if (checkYear < starting_year) return true;
+    if (checkYear > starting_year) return false;
+    return checkMonth < starting_month;
+  };
+
   const calculations = useMemo(() => {
     const groupTotals: Record<number, Record<number, number>> = {};
     const sectionTotals: Record<number, Record<number, number>> = {};
@@ -153,17 +164,33 @@ export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: B
       }
     }
 
-    return { groupTotals, sectionTotals, grandTotals };
-  }, [sections, budgetValues]);
+    // Calculate running balances for cashflow view
+    // Start from the configured starting month
+    const runningBalances: Record<number, number | null> = {};
+    const { starting_balance } = cashflowSettings;
 
-  const { groupTotals, sectionTotals, grandTotals } = calculations;
+    let cumulative = starting_balance;
+    for (let month = 1; month <= 12; month++) {
+      if (isBeforeStartingDate(year, month)) {
+        runningBalances[month] = null; // Will show dash
+      } else {
+        cumulative += grandTotals[month];
+        runningBalances[month] = cumulative;
+      }
+    }
+
+    return { groupTotals, sectionTotals, grandTotals, runningBalances };
+  }, [sections, budgetValues, cashflowSettings, year]);
+
+  const { groupTotals, sectionTotals, grandTotals, runningBalances } = calculations;
+  const isCashflow = viewMode === 'cashflow';
 
   return (
     <div className="budget-table-container">
       <table className="budget-table">
         <thead>
           <tr>
-            <th className="name-column">Budget Report - {year}</th>
+            <th className="name-column">{isCashflow ? 'Cashflow Report' : 'Budget Report'} - {year}</th>
             {MONTHS.map((month, idx) => (
               <th key={idx} className="month-column">
                 {month} {year}
@@ -173,6 +200,27 @@ export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: B
           </tr>
         </thead>
         <tbody>
+          {/* Starting Balance row (cashflow only) */}
+          {isCashflow && (
+            <tr className="starting-balance-row">
+              <td className="name-cell">
+                <span className="starting-balance-name">Starting Balance</span>
+              </td>
+              {MONTHS.map((_, idx) => {
+                const month = idx + 1;
+                const isStartingMonth = year === cashflowSettings.starting_year && month === cashflowSettings.starting_month;
+                return (
+                  <td key={idx} className="value-cell">
+                    {isStartingMonth ? formatCurrency(cashflowSettings.starting_balance, false) : ''}
+                  </td>
+                );
+              })}
+              <td className="value-cell total">
+                {year >= cashflowSettings.starting_year ? formatCurrency(cashflowSettings.starting_balance, false) : '-'}
+              </td>
+            </tr>
+          )}
+
           {sections.map((section) => {
             const sectionYearTotal = Object.values(sectionTotals[section.id] || {}).reduce((a, b) => a + b, 0);
             const isExpense = section.type === 'expense';
@@ -342,6 +390,31 @@ export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: B
               )}
             </td>
           </tr>
+
+          {/* Running Balance row (cashflow only) */}
+          {isCashflow && (
+            <tr className="running-balance-row">
+              <td className="name-cell">
+                <span className="running-balance-name">Running Balance</span>
+              </td>
+              {MONTHS.map((_, idx) => {
+                const balance = runningBalances[idx + 1];
+                if (balance === null) {
+                  return <td key={idx} className="value-cell running-balance na">-</td>;
+                }
+                return (
+                  <td key={idx} className={`value-cell running-balance ${balance < 0 ? 'negative' : ''}`}>
+                    {formatCurrency(Math.abs(balance), balance < 0)}
+                  </td>
+                );
+              })}
+              <td className={`value-cell total running-balance ${(runningBalances[12] ?? 0) < 0 ? 'negative' : ''} ${runningBalances[12] === null ? 'na' : ''}`}>
+                {runningBalances[12] !== null
+                  ? formatCurrency(Math.abs(runningBalances[12]), runningBalances[12] < 0)
+                  : '-'}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

@@ -276,3 +276,42 @@
 .group-row.disabled .value-cell {
   text-decoration: line-through;
 }
+
+/* Starting Balance row (cashflow view) */
+.starting-balance-row {
+  background-color: #f0f9ff;
+}
+
+.starting-balance-name {
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+/* Running Balance row (cashflow view) */
+.running-balance-row {
+  background-color: #f0f9ff;
+}
+
+.running-balance-row td {
+  border-top: 2px solid var(--accent-color);
+}
+
+.running-balance-name {
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.value-cell.running-balance {
+  font-weight: 600;
+  color: #059669;
+}
+
+.value-cell.running-balance.negative {
+  color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.value-cell.running-balance.na {
+  color: var(--text-secondary);
+  font-weight: 400;
+}

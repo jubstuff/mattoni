@@ -59,6 +59,15 @@ function initializeDatabase(db: Database.Database): void {
       FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
       UNIQUE(component_id, year, month)
     );
+
+    CREATE TABLE IF NOT EXISTS cashflow_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      starting_balance REAL DEFAULT 0,
+      starting_year INTEGER NOT NULL,
+      starting_month INTEGER NOT NULL CHECK (starting_month >= 1 AND starting_month <= 12),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migration: Add is_disabled column to existing tables if not present

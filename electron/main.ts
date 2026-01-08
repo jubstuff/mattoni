@@ -676,6 +676,47 @@ function startServer(): Promise<number> {
         res.json(result);
       });
 
+      // Cashflow settings (starting balance with date)
+      expressApp.get('/api/cashflow-settings', requireDatabase, (_req, res) => {
+        const db = getCurrentDatabase()!;
+
+        const settings = db.prepare(`
+          SELECT starting_balance, starting_year, starting_month
+          FROM cashflow_settings
+          LIMIT 1
+        `).get() as { starting_balance: number; starting_year: number; starting_month: number } | undefined;
+
+        if (settings) {
+          res.json(settings);
+        } else {
+          // Return defaults (current month)
+          const now = new Date();
+          res.json({
+            starting_balance: 0,
+            starting_year: now.getFullYear(),
+            starting_month: now.getMonth() + 1,
+          });
+        }
+      });
+
+      expressApp.put('/api/cashflow-settings', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
+        const { starting_balance, starting_year, starting_month } = req.body;
+
+        if (starting_balance === undefined || starting_year === undefined || starting_month === undefined) {
+          return res.status(400).json({ error: 'starting_balance, starting_year, and starting_month are required' });
+        }
+
+        // Delete any existing settings and insert new one
+        db.prepare('DELETE FROM cashflow_settings').run();
+        db.prepare(`
+          INSERT INTO cashflow_settings (starting_balance, starting_year, starting_month, updated_at)
+          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `).run(starting_balance, starting_year, starting_month);
+
+        res.json({ success: true, starting_balance, starting_year, starting_month });
+      });
+
       // Health check
       expressApp.get('/api/health', (_req, res) => {
         res.json({ status: 'ok', hasBudget: getCurrentDatabase() !== null });

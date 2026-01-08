@@ -49,3 +49,10 @@ export interface BudgetsResponse {
   budgets: BudgetMetadata[];
   lastSelectedBudgetId: string | null;
 }
+
+// Cashflow settings
+export interface CashflowSettings {
+  starting_balance: number;
+  starting_year: number;
+  starting_month: number;
+}
