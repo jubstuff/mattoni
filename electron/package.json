@@ -1,6 +1,6 @@
 {
   "name": "mattoni",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Mattoni - Personal Finance Budgeting",
   "main": "dist/main.js",
   "author": "Mattoni",
