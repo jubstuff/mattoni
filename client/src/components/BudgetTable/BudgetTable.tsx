@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { marked } from 'marked';
 import type { Section, BudgetValues, Notes } from '../../types';
 import './BudgetTable.css';
@@ -16,6 +16,7 @@ interface BudgetTableProps {
   budgetValues: BudgetValues;
   notes: Notes;
   year: number;
+  budgetId: string | null;
 }
 
 function formatCurrency(amount: number, isExpense: boolean): string {
@@ -33,11 +34,56 @@ function formatCurrency(amount: number, isExpense: boolean): string {
   return formatted;
 }
 
-export function BudgetTable({ sections, budgetValues, notes, year }: BudgetTableProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set(sections.map((s) => s.id)));
-  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(
-    new Set(sections.flatMap((s) => s.groups.map((g) => g.id)))
-  );
+export function BudgetTable({ sections, budgetValues, notes, year, budgetId }: BudgetTableProps) {
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const initializedForBudget = useRef<string | null>(null);
+
+  // Load state from localStorage when budgetId becomes available
+  useEffect(() => {
+    if (!budgetId || sections.length === 0) return;
+    if (initializedForBudget.current === budgetId) return; // Already initialized for this budget
+
+    const savedSections = localStorage.getItem(`mattoni:${budgetId}:table:expandedSections`);
+    const savedGroups = localStorage.getItem(`mattoni:${budgetId}:table:expandedGroups`);
+
+    if (savedSections) {
+      try {
+        setExpandedSections(new Set(JSON.parse(savedSections)));
+      } catch {
+        setExpandedSections(new Set(sections.map((s) => s.id)));
+      }
+    } else {
+      // Default: all sections expanded
+      setExpandedSections(new Set(sections.map((s) => s.id)));
+    }
+
+    if (savedGroups) {
+      try {
+        setExpandedGroups(new Set(JSON.parse(savedGroups)));
+      } catch {
+        setExpandedGroups(new Set(sections.flatMap((s) => s.groups.map((g) => g.id))));
+      }
+    } else {
+      // Default: all groups expanded
+      setExpandedGroups(new Set(sections.flatMap((s) => s.groups.map((g) => g.id))));
+    }
+
+    initializedForBudget.current = budgetId;
+  }, [budgetId, sections]);
+
+  // Persist expanded state to localStorage (only after initialization)
+  useEffect(() => {
+    if (budgetId && initializedForBudget.current === budgetId) {
+      localStorage.setItem(`mattoni:${budgetId}:table:expandedSections`, JSON.stringify([...expandedSections]));
+    }
+  }, [budgetId, expandedSections]);
+
+  useEffect(() => {
+    if (budgetId && initializedForBudget.current === budgetId) {
+      localStorage.setItem(`mattoni:${budgetId}:table:expandedGroups`, JSON.stringify([...expandedGroups]));
+    }
+  }, [budgetId, expandedGroups]);
 
   const toggleSection = (id: number) => {
     setExpandedSections((prev) => {

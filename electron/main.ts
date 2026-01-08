@@ -690,7 +690,8 @@ function startServer(): Promise<number> {
         res.sendFile(path.join(clientPath, 'index.html'));
       });
 
-      server = expressApp.listen(0, () => {
+      const PORT = 47831; // Fixed port for consistent localStorage
+      server = expressApp.listen(PORT, () => {
         const actualPort = (server!.address() as AddressInfo).port;
         console.log(`Server running on http://localhost:${actualPort}`);
         resolve(actualPort);

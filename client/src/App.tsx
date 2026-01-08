@@ -105,12 +105,43 @@ function App() {
   const handleComponentSelect = (component: Component, section: Section) => {
     setEditingComponent(component);
     setEditingSection(section);
+    // Persist selected component ID
+    if (currentBudget) {
+      localStorage.setItem(`mattoni:${currentBudget.id}:selectedComponentId`, String(component.id));
+    }
   };
 
   const handleCloseDrawer = () => {
     setEditingComponent(null);
     setEditingSection(null);
+    // Clear persisted selection
+    if (currentBudget) {
+      localStorage.removeItem(`mattoni:${currentBudget.id}:selectedComponentId`);
+    }
   };
+
+  // Restore selected component after sections load
+  useEffect(() => {
+    if (!currentBudget || sections.length === 0 || editingComponent) return;
+
+    const savedId = localStorage.getItem(`mattoni:${currentBudget.id}:selectedComponentId`);
+    if (savedId) {
+      const componentId = parseInt(savedId, 10);
+      // Find component and its section
+      for (const section of sections) {
+        for (const group of section.groups) {
+          const component = group.components.find((c) => c.id === componentId);
+          if (component) {
+            setEditingComponent(component);
+            setEditingSection(section);
+            return;
+          }
+        }
+      }
+      // Component not found, clear saved ID
+      localStorage.removeItem(`mattoni:${currentBudget.id}:selectedComponentId`);
+    }
+  }, [currentBudget, sections]);
 
   const handleValuesChange = useCallback(() => {
     fetchData();
@@ -163,6 +194,7 @@ function App() {
       <div className="app-content">
         <TreeSidebar
           sections={sections}
+          budgetId={currentBudget?.id ?? null}
           onDataChange={fetchData}
           onComponentSelect={handleComponentSelect}
           selectedComponentId={editingComponent?.id ?? null}
@@ -180,6 +212,7 @@ function App() {
             budgetValues={budgetValues}
             notes={notes}
             year={selectedYear}
+            budgetId={currentBudget?.id ?? null}
           />
         </main>
       </div>

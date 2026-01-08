@@ -9,10 +9,16 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 24px;
+  padding: 12px 24px 12px 80px; /* Extra left padding for macOS traffic lights */
   background-color: var(--sidebar-bg);
   color: white;
   border-bottom: 1px solid var(--border-color);
+  -webkit-app-region: drag; /* Make header draggable */
+}
+
+.app-header button,
+.app-header select {
+  -webkit-app-region: no-drag; /* Make interactive elements clickable */
 }
 
 .app-header h1 {

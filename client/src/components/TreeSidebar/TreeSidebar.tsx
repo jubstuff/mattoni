@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -34,6 +34,7 @@ import './TreeSidebar.css';
 
 interface TreeSidebarProps {
   sections: Section[];
+  budgetId: string | null;
   onDataChange: () => void;
   onComponentSelect: (component: Component, section: Section) => void;
   selectedComponentId: number | null;
@@ -220,9 +221,55 @@ function SortableComponent({
   );
 }
 
-export function TreeSidebar({ sections, onDataChange, onComponentSelect, selectedComponentId }: TreeSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set(sections.map((s) => s.id)));
+export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelect, selectedComponentId }: TreeSidebarProps) {
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const initializedForBudget = useRef<string | null>(null);
+
+  // Load state from localStorage when budgetId becomes available
+  useEffect(() => {
+    if (!budgetId || sections.length === 0) return;
+    if (initializedForBudget.current === budgetId) return; // Already initialized for this budget
+
+    const savedSections = localStorage.getItem(`mattoni:${budgetId}:sidebar:expandedSections`);
+    const savedGroups = localStorage.getItem(`mattoni:${budgetId}:sidebar:expandedGroups`);
+
+    if (savedSections) {
+      try {
+        setExpandedSections(new Set(JSON.parse(savedSections)));
+      } catch {
+        setExpandedSections(new Set(sections.map((s) => s.id)));
+      }
+    } else {
+      // Default: all sections expanded
+      setExpandedSections(new Set(sections.map((s) => s.id)));
+    }
+
+    if (savedGroups) {
+      try {
+        setExpandedGroups(new Set(JSON.parse(savedGroups)));
+      } catch {
+        setExpandedGroups(new Set());
+      }
+    } else {
+      setExpandedGroups(new Set());
+    }
+
+    initializedForBudget.current = budgetId;
+  }, [budgetId, sections]);
+
+  // Persist expanded state to localStorage (only after initialization)
+  useEffect(() => {
+    if (budgetId && initializedForBudget.current === budgetId) {
+      localStorage.setItem(`mattoni:${budgetId}:sidebar:expandedSections`, JSON.stringify([...expandedSections]));
+    }
+  }, [budgetId, expandedSections]);
+
+  useEffect(() => {
+    if (budgetId && initializedForBudget.current === budgetId) {
+      localStorage.setItem(`mattoni:${budgetId}:sidebar:expandedGroups`, JSON.stringify([...expandedGroups]));
+    }
+  }, [budgetId, expandedGroups]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [addingTo, setAddingTo] = useState<{ type: 'group' | 'component'; parentId: number } | null>(null);
