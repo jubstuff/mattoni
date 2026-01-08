@@ -21,6 +21,7 @@ function initializeDatabase(db: Database.Database): void {
       section_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
+      is_disabled INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
     );
@@ -30,6 +31,7 @@ function initializeDatabase(db: Database.Database): void {
       group_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
+      is_disabled INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
     );
@@ -58,6 +60,17 @@ function initializeDatabase(db: Database.Database): void {
       UNIQUE(component_id, year, month)
     );
   `);
+
+  // Migration: Add is_disabled column to existing tables if not present
+  const groupColumns = db.prepare("PRAGMA table_info(groups)").all() as { name: string }[];
+  if (!groupColumns.some(col => col.name === 'is_disabled')) {
+    db.exec('ALTER TABLE groups ADD COLUMN is_disabled INTEGER DEFAULT 0');
+  }
+
+  const componentColumns = db.prepare("PRAGMA table_info(components)").all() as { name: string }[];
+  if (!componentColumns.some(col => col.name === 'is_disabled')) {
+    db.exec('ALTER TABLE components ADD COLUMN is_disabled INTEGER DEFAULT 0');
+  }
 }
 
 function seedDatabase(db: Database.Database): void {

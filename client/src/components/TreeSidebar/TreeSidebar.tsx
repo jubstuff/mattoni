@@ -27,6 +27,8 @@ import {
   deleteComponent,
   reorderGroups,
   reorderComponents,
+  toggleComponentDisabled,
+  toggleGroupDisabled,
 } from '../../api/client';
 import './TreeSidebar.css';
 
@@ -42,6 +44,7 @@ interface SortableGroupProps {
   section: Section;
   isExpanded: boolean;
   onToggle: (id: number, e: React.MouseEvent) => void;
+  onToggleDisabled: (id: number, e: React.MouseEvent) => void;
   editingId: string | null;
   editingName: string;
   setEditingName: (name: string) => void;
@@ -56,6 +59,7 @@ function SortableGroup({
   group,
   isExpanded,
   onToggle,
+  onToggleDisabled,
   editingId,
   editingName,
   setEditingName,
@@ -82,7 +86,7 @@ function SortableGroup({
 
   return (
     <div ref={setNodeRef} style={style} className="tree-group">
-      <div className="tree-item tree-item-group">
+      <div className={`tree-item tree-item-group ${group.is_disabled ? 'disabled' : ''}`}>
         <span className="drag-handle" {...attributes} {...listeners}>⠿</span>
         <button className="tree-toggle" onClick={(e) => onToggle(group.id, e)}>
           {isExpanded ? '▼' : '▶'}
@@ -104,6 +108,13 @@ function SortableGroup({
             >
               {group.name}
             </span>
+            <button
+              className={`tree-action-btn toggle-visibility ${group.is_disabled ? 'is-disabled' : ''}`}
+              onClick={(e) => onToggleDisabled(group.id, e)}
+              title={group.is_disabled ? 'Enable group' : 'Disable group'}
+            >
+              {group.is_disabled ? '○' : '●'}
+            </button>
             <button
               className="tree-action-btn delete"
               onClick={(e) => onDelete('group', group.id, e)}
@@ -127,6 +138,7 @@ interface SortableComponentProps {
   editingName: string;
   setEditingName: (name: string) => void;
   onClick: (component: Component, section: Section, e: React.MouseEvent) => void;
+  onToggleDisabled: (id: number, e: React.MouseEvent) => void;
   onStartEdit: (type: string, id: number, name: string, e: React.MouseEvent) => void;
   onSaveEdit: (type: string, id: number) => void;
   onDelete: (type: string, id: number, e: React.MouseEvent) => void;
@@ -141,6 +153,7 @@ function SortableComponent({
   editingName,
   setEditingName,
   onClick,
+  onToggleDisabled,
   onStartEdit,
   onSaveEdit,
   onDelete,
@@ -165,7 +178,7 @@ function SortableComponent({
     <div
       ref={setNodeRef}
       style={style}
-      className={`tree-item tree-item-component ${isSelected ? 'selected' : ''}`}
+      className={`tree-item tree-item-component ${isSelected ? 'selected' : ''} ${component.is_disabled ? 'disabled' : ''}`}
       onClick={(e) => onClick(component, section, e)}
     >
       <span className="drag-handle" {...attributes} {...listeners}>⠿</span>
@@ -187,6 +200,13 @@ function SortableComponent({
           >
             {component.name}
           </span>
+          <button
+            className={`tree-action-btn toggle-visibility ${component.is_disabled ? 'is-disabled' : ''}`}
+            onClick={(e) => onToggleDisabled(component.id, e)}
+            title={component.is_disabled ? 'Enable component' : 'Disable component'}
+          >
+            {component.is_disabled ? '○' : '●'}
+          </button>
           <button
             className="tree-action-btn delete"
             onClick={(e) => onDelete('component', component.id, e)}
@@ -326,6 +346,26 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
     } else if (e.key === 'Escape') {
       setEditingId(null);
       setAddingTo(null);
+    }
+  };
+
+  const handleToggleGroupDisabled = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await toggleGroupDisabled(id);
+      onDataChange();
+    } catch (err) {
+      console.error('Error toggling group disabled state:', err);
+    }
+  };
+
+  const handleToggleComponentDisabled = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await toggleComponentDisabled(id);
+      onDataChange();
+    } catch (err) {
+      console.error('Error toggling component disabled state:', err);
     }
   };
 
@@ -546,6 +586,7 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
                         section={section}
                         isExpanded={expandedGroups.has(group.id)}
                         onToggle={toggleGroup}
+                        onToggleDisabled={handleToggleGroupDisabled}
                         editingId={editingId}
                         editingName={editingName}
                         setEditingName={setEditingName}
@@ -570,6 +611,7 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
                                   editingName={editingName}
                                   setEditingName={setEditingName}
                                   onClick={handleComponentClick}
+                                  onToggleDisabled={handleToggleComponentDisabled}
                                   onStartEdit={handleStartEdit}
                                   onSaveEdit={handleSaveEdit}
                                   onDelete={handleDelete}

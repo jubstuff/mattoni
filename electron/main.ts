@@ -233,16 +233,16 @@ function startServer(): Promise<number> {
         `).all() as Array<{ id: number; name: string; type: string; sort_order: number }>;
 
         const groups = db.prepare(`
-          SELECT id, section_id, name, sort_order
+          SELECT id, section_id, name, sort_order, is_disabled
           FROM groups
           ORDER BY sort_order, id
-        `).all() as Array<{ id: number; section_id: number; name: string; sort_order: number }>;
+        `).all() as Array<{ id: number; section_id: number; name: string; sort_order: number; is_disabled: number }>;
 
         const components = db.prepare(`
-          SELECT id, group_id, name, sort_order
+          SELECT id, group_id, name, sort_order, is_disabled
           FROM components
           ORDER BY sort_order, id
-        `).all() as Array<{ id: number; group_id: number; name: string; sort_order: number }>;
+        `).all() as Array<{ id: number; group_id: number; name: string; sort_order: number; is_disabled: number }>;
 
         // Build nested structure
         const groupsMap = new Map<number, typeof groups>();
@@ -265,7 +265,11 @@ function startServer(): Promise<number> {
           ...section,
           groups: (groupsMap.get(section.id) || []).map((group) => ({
             ...group,
-            components: componentsMap.get(group.id) || [],
+            is_disabled: Boolean(group.is_disabled),
+            components: (componentsMap.get(group.id) || []).map((component) => ({
+              ...component,
+              is_disabled: Boolean(component.is_disabled),
+            })),
           })),
         }));
 
@@ -470,6 +474,48 @@ function startServer(): Promise<number> {
         } catch (error) {
           console.error('Error reordering components:', error);
           res.status(500).json({ error: 'Failed to reorder components' });
+        }
+      });
+
+      // Toggle component disabled state
+      expressApp.patch('/api/components/:id/toggle-disabled', requireDatabase, (req, res) => {
+        try {
+          const db = getCurrentDatabase()!;
+          const { id } = req.params;
+
+          const component = db.prepare('SELECT is_disabled FROM components WHERE id = ?').get(id) as { is_disabled: number } | undefined;
+          if (!component) {
+            return res.status(404).json({ error: 'Component not found' });
+          }
+
+          const newValue = component.is_disabled ? 0 : 1;
+          db.prepare('UPDATE components SET is_disabled = ? WHERE id = ?').run(newValue, id);
+
+          res.json({ is_disabled: Boolean(newValue) });
+        } catch (error) {
+          console.error('Error toggling component disabled state:', error);
+          res.status(500).json({ error: 'Failed to toggle component disabled state' });
+        }
+      });
+
+      // Toggle group disabled state
+      expressApp.patch('/api/groups/:id/toggle-disabled', requireDatabase, (req, res) => {
+        try {
+          const db = getCurrentDatabase()!;
+          const { id } = req.params;
+
+          const group = db.prepare('SELECT is_disabled FROM groups WHERE id = ?').get(id) as { is_disabled: number } | undefined;
+          if (!group) {
+            return res.status(404).json({ error: 'Group not found' });
+          }
+
+          const newValue = group.is_disabled ? 0 : 1;
+          db.prepare('UPDATE groups SET is_disabled = ? WHERE id = ?').run(newValue, id);
+
+          res.json({ is_disabled: Boolean(newValue) });
+        } catch (error) {
+          console.error('Error toggling group disabled state:', error);
+          res.status(500).json({ error: 'Failed to toggle group disabled state' });
         }
       });
 

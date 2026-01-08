@@ -103,6 +103,18 @@ export async function reorderComponents(updates: Array<{ id: number; sort_order:
   });
 }
 
+export async function toggleComponentDisabled(id: number): Promise<{ is_disabled: boolean }> {
+  return fetchJSON(`/components/${id}/toggle-disabled`, {
+    method: 'PATCH',
+  });
+}
+
+export async function toggleGroupDisabled(id: number): Promise<{ is_disabled: boolean }> {
+  return fetchJSON(`/groups/${id}/toggle-disabled`, {
+    method: 'PATCH',
+  });
+}
+
 // Budget Values
 export async function getBudgetValues(year: number): Promise<BudgetValues> {
   return fetchJSON<BudgetValues>(`/budget/${year}`);

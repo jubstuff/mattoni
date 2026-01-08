@@ -260,3 +260,19 @@
   border-radius: 3px;
   font-size: 11px;
 }
+
+/* Disabled rows */
+.component-row.disabled,
+.group-row.disabled {
+  opacity: 0.4;
+}
+
+.component-row.disabled .component-name,
+.group-row.disabled .group-name {
+  text-decoration: line-through;
+}
+
+.component-row.disabled .value-cell,
+.group-row.disabled .value-cell {
+  text-decoration: line-through;
+}

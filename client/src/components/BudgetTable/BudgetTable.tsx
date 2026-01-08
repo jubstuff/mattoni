@@ -93,6 +93,9 @@ export function BudgetTable({ sections, budgetValues, notes, year }: BudgetTable
         }
 
         for (const component of group.components) {
+          // Skip disabled components or components in disabled groups
+          if (component.is_disabled || group.is_disabled) continue;
+
           for (let month = 1; month <= 12; month++) {
             const value = getComponentValue(component.id, month);
             const signedValue = section.type === 'expense' ? -value : value;
@@ -163,7 +166,7 @@ export function BudgetTable({ sections, budgetValues, notes, year }: BudgetTable
                     return (
                       <tbody key={group.id} className="group-section">
                         {/* Group header row - shows totals when collapsed */}
-                        <tr className={`group-row ${!isGroupExpanded ? 'collapsed' : ''}`}>
+                        <tr className={`group-row ${!isGroupExpanded ? 'collapsed' : ''} ${group.is_disabled ? 'disabled' : ''}`}>
                           <td className="name-cell indent-1">
                             <button className="toggle-btn" onClick={() => toggleGroup(group.id)}>
                               {isGroupExpanded ? '▾' : '▸'}
@@ -194,8 +197,10 @@ export function BudgetTable({ sections, budgetValues, notes, year }: BudgetTable
                                 getComponentValue(component.id, i + 1)
                               ).reduce((a, b) => a + b, 0);
 
+                              const isComponentDisabled = component.is_disabled || group.is_disabled;
+
                               return (
-                                <tr key={component.id} className="component-row">
+                                <tr key={component.id} className={`component-row ${isComponentDisabled ? 'disabled' : ''}`}>
                                   <td className="name-cell indent-2">
                                     <span className="component-name">{component.name}</span>
                                   </td>

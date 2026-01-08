@@ -3,6 +3,7 @@ export interface Component {
   group_id: number;
   name: string;
   sort_order: number;
+  is_disabled: boolean;
 }
 
 export interface Group {
@@ -10,6 +11,7 @@ export interface Group {
   section_id: number;
   name: string;
   sort_order: number;
+  is_disabled: boolean;
   components: Component[];
 }
 
