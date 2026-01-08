@@ -1,4 +1,4 @@
-import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes } from '../types';
+import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes, BudgetMetadata, BudgetsResponse } from '../types';
 
 const API_BASE = '/api';
 
@@ -133,4 +133,41 @@ export async function updateNotes(componentId: number, year: number, notes: Mont
 
 export async function getComponentNotes(componentId: number, year: number): Promise<MonthlyNotes> {
   return fetchJSON<MonthlyNotes>(`/notes/component/${componentId}/${year}`);
+}
+
+// Budgets (file management)
+export async function getBudgets(): Promise<BudgetsResponse> {
+  return fetchJSON<BudgetsResponse>('/budgets');
+}
+
+export async function createBudget(name: string): Promise<BudgetMetadata> {
+  return fetchJSON<BudgetMetadata>('/budgets', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function selectBudget(id: string): Promise<{ success: boolean; budget: BudgetMetadata }> {
+  return fetchJSON(`/budgets/${id}/select`, {
+    method: 'POST',
+  });
+}
+
+export async function deselectBudget(): Promise<void> {
+  return fetchJSON('/budgets/deselect', {
+    method: 'POST',
+  });
+}
+
+export async function renameBudget(id: string, name: string): Promise<BudgetMetadata> {
+  return fetchJSON<BudgetMetadata>(`/budgets/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  return fetchJSON<void>(`/budgets/${id}`, {
+    method: 'DELETE',
+  });
 }

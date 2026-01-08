@@ -1,134 +1,231 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import Database from 'better-sqlite3';
 import type { AddressInfo } from 'net';
+import {
+  getCurrentDatabase,
+  switchDatabase,
+  closeDatabase,
+  createNewDatabase,
+  deleteDatabase,
+  databaseFileExists,
+} from './database-manager.js';
+import {
+  loadMetadata,
+  saveMetadata,
+  addBudget,
+  removeBudget,
+  updateLastAccessed,
+  setLastSelectedBudget,
+  getBudgetById,
+  renameBudget,
+  getDataPath,
+} from './metadata-manager.js';
+import type { BudgetMetadata } from './types.js';
 
 let mainWindow: BrowserWindow | null = null;
 let server: ReturnType<typeof express.application.listen> | null = null;
 
-// Database setup
-function getDbPath(): string {
-  const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, 'budget.db');
+// Migration: Handle existing budget.db from before multi-budget support
+function migrateExistingBudget(): void {
+  const metadata = loadMetadata();
+  const legacyDbPath = path.join(getDataPath(), 'budget.db');
+
+  // Only migrate if no budgets exist and legacy file exists
+  if (metadata.budgets.length === 0 && fs.existsSync(legacyDbPath)) {
+    const newId = crypto.randomUUID();
+    const newFilename = `budget-${newId}.db`;
+    const newPath = path.join(getDataPath(), newFilename);
+
+    // Rename old file to new format
+    fs.renameSync(legacyDbPath, newPath);
+
+    // Add to metadata
+    const migratedBudget: BudgetMetadata = {
+      id: newId,
+      name: 'My Budget',
+      filename: newFilename,
+      createdAt: new Date().toISOString(),
+      lastAccessedAt: new Date().toISOString(),
+    };
+
+    metadata.budgets.push(migratedBudget);
+    metadata.lastSelectedBudgetId = newId;
+    saveMetadata(metadata);
+
+    console.log('Migrated existing budget.db to new format');
+  }
 }
 
-function initializeDatabase(db: Database.Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sections (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-      sort_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS groups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      section_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      sort_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS components (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      group_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      sort_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_values (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      component_id INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
-      amount REAL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
-      UNIQUE(component_id, year, month)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_notes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      component_id INTEGER NOT NULL,
-      year INTEGER NOT NULL,
-      month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
-      note TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
-      UNIQUE(component_id, year, month)
-    );
-  `);
-}
-
-function seedDatabase(db: Database.Database): void {
-  const count = db.prepare('SELECT COUNT(*) as count FROM sections').get() as { count: number };
-  if (count.count > 0) return;
-
-  // Seed with household finance data
-  const insertSection = db.prepare('INSERT INTO sections (name, type, sort_order) VALUES (?, ?, ?)');
-  const insertGroup = db.prepare('INSERT INTO groups (section_id, name, sort_order) VALUES (?, ?, ?)');
-  const insertComponent = db.prepare('INSERT INTO components (group_id, name, sort_order) VALUES (?, ?, ?)');
-
-  // Income section
-  const incomeResult = insertSection.run('Income', 'income', 1);
-  const incomeId = incomeResult.lastInsertRowid;
-
-  const employmentGroup = insertGroup.run(incomeId, 'Employment', 1);
-  insertComponent.run(employmentGroup.lastInsertRowid, 'Salary', 1);
-  insertComponent.run(employmentGroup.lastInsertRowid, 'Bonus', 2);
-
-  const otherIncomeGroup = insertGroup.run(incomeId, 'Other Income', 2);
-  insertComponent.run(otherIncomeGroup.lastInsertRowid, 'Side Jobs', 1);
-  insertComponent.run(otherIncomeGroup.lastInsertRowid, 'Investments', 2);
-
-  // Expenses section
-  const expenseResult = insertSection.run('Expenses', 'expense', 2);
-  const expenseId = expenseResult.lastInsertRowid;
-
-  const housingGroup = insertGroup.run(expenseId, 'Housing', 1);
-  insertComponent.run(housingGroup.lastInsertRowid, 'Rent/Mortgage', 1);
-  insertComponent.run(housingGroup.lastInsertRowid, 'Utilities', 2);
-  insertComponent.run(housingGroup.lastInsertRowid, 'Home Insurance', 3);
-
-  const transportGroup = insertGroup.run(expenseId, 'Transportation', 2);
-  insertComponent.run(transportGroup.lastInsertRowid, 'Car Payment', 1);
-  insertComponent.run(transportGroup.lastInsertRowid, 'Gas', 2);
-  insertComponent.run(transportGroup.lastInsertRowid, 'Car Insurance', 3);
-
-  const foodGroup = insertGroup.run(expenseId, 'Food', 3);
-  insertComponent.run(foodGroup.lastInsertRowid, 'Groceries', 1);
-  insertComponent.run(foodGroup.lastInsertRowid, 'Dining Out', 2);
-
-  const personalGroup = insertGroup.run(expenseId, 'Personal', 4);
-  insertComponent.run(personalGroup.lastInsertRowid, 'Subscriptions', 1);
-  insertComponent.run(personalGroup.lastInsertRowid, 'Entertainment', 2);
-  insertComponent.run(personalGroup.lastInsertRowid, 'Healthcare', 3);
+// Middleware to require an active database connection
+function requireDatabase(req: Request, res: Response, next: NextFunction) {
+  if (!getCurrentDatabase()) {
+    return res.status(503).json({ error: 'No budget selected' });
+  }
+  next();
 }
 
 function startServer(): Promise<number> {
   return new Promise((resolve, reject) => {
     try {
       const expressApp = express();
-      const db = new Database(getDbPath());
 
-      initializeDatabase(db);
-      seedDatabase(db);
+      // Run migration on startup
+      migrateExistingBudget();
 
       expressApp.use(cors());
       expressApp.use(express.json());
 
-      // API Routes
+      // ============================================
+      // Budget Management API (no database required)
+      // ============================================
+
+      // Get all budgets and last selected
+      expressApp.get('/api/budgets', (_req, res) => {
+        const metadata = loadMetadata();
+        res.json({
+          budgets: metadata.budgets,
+          lastSelectedBudgetId: metadata.lastSelectedBudgetId,
+        });
+      });
+
+      // Create new budget
+      expressApp.post('/api/budgets', (req, res) => {
+        try {
+          const { name } = req.body;
+
+          if (!name || typeof name !== 'string' || !name.trim()) {
+            return res.status(400).json({ error: 'Budget name is required' });
+          }
+
+          const budget = addBudget(name.trim());
+
+          // Create and seed the database file
+          createNewDatabase(budget.filename, true);
+
+          // Set as last selected
+          setLastSelectedBudget(budget.id);
+
+          res.status(201).json(budget);
+        } catch (error) {
+          console.error('Error creating budget:', error);
+          res.status(500).json({ error: 'Failed to create budget' });
+        }
+      });
+
+      // Select/switch to a budget
+      expressApp.post('/api/budgets/:id/select', (req, res) => {
+        try {
+          const { id } = req.params;
+          const budget = getBudgetById(id);
+
+          if (!budget) {
+            return res.status(404).json({ error: 'Budget not found' });
+          }
+
+          // Check if database file exists
+          if (!databaseFileExists(budget.filename)) {
+            return res.status(404).json({ error: 'Budget file not found' });
+          }
+
+          // Switch to this database
+          switchDatabase(budget.filename);
+
+          // Update last accessed
+          updateLastAccessed(id);
+
+          // Set as last selected
+          setLastSelectedBudget(id);
+
+          // Get updated budget info
+          const updatedBudget = getBudgetById(id);
+
+          res.json({ success: true, budget: updatedBudget });
+        } catch (error) {
+          console.error('Error selecting budget:', error);
+          res.status(500).json({ error: 'Failed to select budget' });
+        }
+      });
+
+      // Deselect current budget (return to welcome screen)
+      expressApp.post('/api/budgets/deselect', (_req, res) => {
+        try {
+          closeDatabase();
+          setLastSelectedBudget(null);
+          res.json({ success: true });
+        } catch (error) {
+          console.error('Error deselecting budget:', error);
+          res.status(500).json({ error: 'Failed to deselect budget' });
+        }
+      });
+
+      // Get current budget info
+      expressApp.get('/api/budgets/current', (_req, res) => {
+        const metadata = loadMetadata();
+        if (!metadata.lastSelectedBudgetId) {
+          return res.json(null);
+        }
+        const budget = getBudgetById(metadata.lastSelectedBudgetId);
+        res.json(budget);
+      });
+
+      // Rename a budget
+      expressApp.put('/api/budgets/:id', (req, res) => {
+        try {
+          const { id } = req.params;
+          const { name } = req.body;
+
+          if (!name || typeof name !== 'string' || !name.trim()) {
+            return res.status(400).json({ error: 'Budget name is required' });
+          }
+
+          const budget = renameBudget(id, name.trim());
+
+          if (!budget) {
+            return res.status(404).json({ error: 'Budget not found' });
+          }
+
+          res.json(budget);
+        } catch (error) {
+          console.error('Error renaming budget:', error);
+          res.status(500).json({ error: 'Failed to rename budget' });
+        }
+      });
+
+      // Delete a budget
+      expressApp.delete('/api/budgets/:id', (req, res) => {
+        try {
+          const { id } = req.params;
+          const budget = getBudgetById(id);
+
+          if (!budget) {
+            return res.status(404).json({ error: 'Budget not found' });
+          }
+
+          // Delete database file
+          deleteDatabase(budget.filename);
+
+          // Remove from metadata
+          removeBudget(id);
+
+          res.status(204).send();
+        } catch (error) {
+          console.error('Error deleting budget:', error);
+          res.status(500).json({ error: 'Failed to delete budget' });
+        }
+      });
+
+      // ============================================
+      // Data API (requires active database)
+      // ============================================
 
       // Sections - Get all with nested groups and components
-      expressApp.get('/api/sections', (_req, res) => {
+      expressApp.get('/api/sections', requireDatabase, (_req, res) => {
+        const db = getCurrentDatabase()!;
         const sections = db.prepare(`
           SELECT id, name, type, sort_order
           FROM sections
@@ -175,18 +272,19 @@ function startServer(): Promise<number> {
         res.json(result);
       });
 
-      expressApp.post('/api/sections', (req, res) => {
+      expressApp.post('/api/sections', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { name, type, sort_order } = req.body;
         const result = db.prepare('INSERT INTO sections (name, type, sort_order) VALUES (?, ?, ?)').run(name, type, sort_order || 0);
         const section = db.prepare('SELECT * FROM sections WHERE id = ?').get(result.lastInsertRowid);
         res.status(201).json(section);
       });
 
-      expressApp.put('/api/sections/:id', (req, res) => {
+      expressApp.put('/api/sections/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         const { name, type, sort_order } = req.body;
 
-        // Build dynamic update query for partial updates
         const updates: string[] = [];
         const values: (string | number)[] = [];
 
@@ -212,30 +310,33 @@ function startServer(): Promise<number> {
         res.json(section);
       });
 
-      expressApp.delete('/api/sections/:id', (req, res) => {
+      expressApp.delete('/api/sections/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         db.prepare('DELETE FROM sections WHERE id = ?').run(id);
         res.status(204).send();
       });
 
       // Groups
-      expressApp.get('/api/groups', (_req, res) => {
+      expressApp.get('/api/groups', requireDatabase, (_req, res) => {
+        const db = getCurrentDatabase()!;
         const groups = db.prepare('SELECT * FROM groups ORDER BY sort_order, id').all();
         res.json(groups);
       });
 
-      expressApp.post('/api/groups', (req, res) => {
+      expressApp.post('/api/groups', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { section_id, name, sort_order } = req.body;
         const result = db.prepare('INSERT INTO groups (section_id, name, sort_order) VALUES (?, ?, ?)').run(section_id, name, sort_order || 0);
         const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(result.lastInsertRowid);
         res.status(201).json(group);
       });
 
-      expressApp.put('/api/groups/:id', (req, res) => {
+      expressApp.put('/api/groups/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         const { section_id, name, sort_order } = req.body;
 
-        // Build dynamic update query for partial updates
         const updates: string[] = [];
         const values: (string | number)[] = [];
 
@@ -261,15 +362,17 @@ function startServer(): Promise<number> {
         res.json(group);
       });
 
-      expressApp.delete('/api/groups/:id', (req, res) => {
+      expressApp.delete('/api/groups/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         db.prepare('DELETE FROM groups WHERE id = ?').run(id);
         res.status(204).send();
       });
 
-      // Batch reorder groups (and optionally move between sections)
-      expressApp.patch('/api/groups/reorder', (req, res) => {
+      // Batch reorder groups
+      expressApp.patch('/api/groups/reorder', requireDatabase, (req, res) => {
         try {
+          const db = getCurrentDatabase()!;
           const { updates } = req.body;
 
           if (!updates || !Array.isArray(updates)) {
@@ -293,23 +396,25 @@ function startServer(): Promise<number> {
       });
 
       // Components
-      expressApp.get('/api/components', (_req, res) => {
+      expressApp.get('/api/components', requireDatabase, (_req, res) => {
+        const db = getCurrentDatabase()!;
         const components = db.prepare('SELECT * FROM components ORDER BY sort_order, id').all();
         res.json(components);
       });
 
-      expressApp.post('/api/components', (req, res) => {
+      expressApp.post('/api/components', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { group_id, name, sort_order } = req.body;
         const result = db.prepare('INSERT INTO components (group_id, name, sort_order) VALUES (?, ?, ?)').run(group_id, name, sort_order || 0);
         const component = db.prepare('SELECT * FROM components WHERE id = ?').get(result.lastInsertRowid);
         res.status(201).json(component);
       });
 
-      expressApp.put('/api/components/:id', (req, res) => {
+      expressApp.put('/api/components/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         const { group_id, name, sort_order } = req.body;
 
-        // Build dynamic update query for partial updates
         const updates: string[] = [];
         const values: (string | number)[] = [];
 
@@ -335,15 +440,17 @@ function startServer(): Promise<number> {
         res.json(component);
       });
 
-      expressApp.delete('/api/components/:id', (req, res) => {
+      expressApp.delete('/api/components/:id', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { id } = req.params;
         db.prepare('DELETE FROM components WHERE id = ?').run(id);
         res.status(204).send();
       });
 
       // Batch reorder components
-      expressApp.patch('/api/components/reorder', (req, res) => {
+      expressApp.patch('/api/components/reorder', requireDatabase, (req, res) => {
         try {
+          const db = getCurrentDatabase()!;
           const { updates } = req.body;
 
           if (!updates || !Array.isArray(updates)) {
@@ -366,8 +473,9 @@ function startServer(): Promise<number> {
         }
       });
 
-      // Budget values - Get all for a year (grouped by component)
-      expressApp.get('/api/budget/:year', (req, res) => {
+      // Budget values
+      expressApp.get('/api/budget/:year', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { year } = req.params;
         const values = db.prepare(`
           SELECT component_id, month, amount
@@ -375,7 +483,6 @@ function startServer(): Promise<number> {
           WHERE year = ?
         `).all(year) as Array<{ component_id: number; month: number; amount: number }>;
 
-        // Group values by component_id
         const valuesByComponent: Record<number, Record<number, number>> = {};
         for (const value of values) {
           if (!valuesByComponent[value.component_id]) {
@@ -386,8 +493,8 @@ function startServer(): Promise<number> {
         res.json(valuesByComponent);
       });
 
-      // Update budget values for a component
-      expressApp.put('/api/budget/component/:componentId', (req, res) => {
+      expressApp.put('/api/budget/component/:componentId', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { componentId } = req.params;
         const { year, values } = req.body;
 
@@ -420,8 +527,8 @@ function startServer(): Promise<number> {
         res.json({ success: true });
       });
 
-      // Get budget values for a specific component
-      expressApp.get('/api/budget/component/:componentId/:year', (req, res) => {
+      expressApp.get('/api/budget/component/:componentId/:year', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { componentId, year } = req.params;
 
         const values = db.prepare(`
@@ -442,8 +549,9 @@ function startServer(): Promise<number> {
         res.json(result);
       });
 
-      // Notes - Get all for a year (grouped by component)
-      expressApp.get('/api/notes/:year', (req, res) => {
+      // Notes
+      expressApp.get('/api/notes/:year', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { year } = req.params;
         const notes = db.prepare(`
           SELECT component_id, month, note
@@ -461,8 +569,8 @@ function startServer(): Promise<number> {
         res.json(notesByComponent);
       });
 
-      // Update notes for a component
-      expressApp.put('/api/notes/component/:componentId', (req, res) => {
+      expressApp.put('/api/notes/component/:componentId', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { componentId } = req.params;
         const { year, notes } = req.body;
 
@@ -504,8 +612,8 @@ function startServer(): Promise<number> {
         res.json({ success: true });
       });
 
-      // Get notes for a specific component
-      expressApp.get('/api/notes/component/:componentId/:year', (req, res) => {
+      expressApp.get('/api/notes/component/:componentId/:year', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
         const { componentId, year } = req.params;
 
         const notes = db.prepare(`
@@ -524,10 +632,10 @@ function startServer(): Promise<number> {
 
       // Health check
       expressApp.get('/api/health', (_req, res) => {
-        res.json({ status: 'ok' });
+        res.json({ status: 'ok', hasBudget: getCurrentDatabase() !== null });
       });
 
-      // Serve static files - different paths for dev vs production
+      // Serve static files
       const clientPath = app.isPackaged
         ? path.join(process.resourcesPath, 'client')
         : path.join(__dirname, '..', '..', 'client', 'dist');
@@ -599,6 +707,7 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
+  closeDatabase();
   if (server) {
     server.close();
   }

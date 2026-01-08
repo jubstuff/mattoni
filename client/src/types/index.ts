@@ -33,3 +33,17 @@ export type Notes = Record<number, Record<number, string>>;
 export interface MonthlyNotes {
   [month: number]: string;
 }
+
+// Budget file metadata
+export interface BudgetMetadata {
+  id: string;
+  name: string;
+  filename: string;
+  createdAt: string;
+  lastAccessedAt: string;
+}
+
+export interface BudgetsResponse {
+  budgets: BudgetMetadata[];
+  lastSelectedBudgetId: string | null;
+}
