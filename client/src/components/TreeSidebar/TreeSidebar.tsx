@@ -17,7 +17,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { Section, Component, Group } from '../../types';
 import {
-  createSection,
   updateSection,
   deleteSection,
   createGroup,
@@ -206,7 +205,7 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [addingTo, setAddingTo] = useState<{ type: 'section' | 'group' | 'component'; parentId?: number } | null>(null);
+  const [addingTo, setAddingTo] = useState<{ type: 'group' | 'component'; parentId: number } | null>(null);
   const [newName, setNewName] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -295,7 +294,7 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
     }
   };
 
-  const handleStartAdd = (type: 'section' | 'group' | 'component', parentId?: number, e?: React.MouseEvent) => {
+  const handleStartAdd = (type: 'group' | 'component', parentId: number, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setAddingTo({ type, parentId });
     setNewName('');
@@ -305,14 +304,12 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
     if (!addingTo || !newName.trim()) return;
 
     try {
-      if (addingTo.type === 'section') {
-        await createSection(newName, 'expense');
-      } else if (addingTo.type === 'group' && addingTo.parentId) {
+      if (addingTo.type === 'group') {
         await createGroup(addingTo.parentId, newName);
-        setExpandedSections((prev) => new Set([...prev, addingTo.parentId!]));
-      } else if (addingTo.type === 'component' && addingTo.parentId) {
+        setExpandedSections((prev) => new Set([...prev, addingTo.parentId]));
+      } else if (addingTo.type === 'component') {
         await createComponent(addingTo.parentId, newName);
-        setExpandedGroups((prev) => new Set([...prev, addingTo.parentId!]));
+        setExpandedGroups((prev) => new Set([...prev, addingTo.parentId]));
       }
       onDataChange();
     } catch (err) {
@@ -641,25 +638,6 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
           </DragOverlay>
         </DndContext>
 
-        {addingTo?.type === 'section' ? (
-          <div className="tree-section">
-            <div className="tree-item tree-item-section">
-              <input
-                className="tree-add-input"
-                placeholder="Section name..."
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onBlur={handleSaveAdd}
-                onKeyDown={(e) => handleKeyDown(e, handleSaveAdd)}
-                autoFocus
-              />
-            </div>
-          </div>
-        ) : (
-          <button className="tree-add-section-btn" onClick={(e) => handleStartAdd('section', undefined, e)}>
-            + Add Section
-          </button>
-        )}
       </div>
     </aside>
   );

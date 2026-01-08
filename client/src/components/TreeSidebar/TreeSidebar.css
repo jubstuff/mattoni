@@ -150,23 +150,6 @@
   color: var(--accent-color);
 }
 
-.tree-add-section-btn {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px;
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  color: #64748b;
-  margin-top: 8px;
-}
-
-.tree-add-section-btn:hover {
-  color: var(--accent-color);
-  border-color: var(--accent-color);
-}
-
 /* Drag and drop styles */
 .drag-handle {
   cursor: grab;
