@@ -166,3 +166,48 @@
   color: var(--accent-color);
   border-color: var(--accent-color);
 }
+
+/* Drag and drop styles */
+.drag-handle {
+  cursor: grab;
+  color: #64748b;
+  font-size: 12px;
+  padding: 0 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.tree-item:hover .drag-handle {
+  opacity: 1;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-overlay {
+  padding: 6px 12px;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.drag-overlay-group {
+  font-weight: 500;
+  border-left: 3px solid var(--accent-color);
+}
+
+.drag-overlay-component {
+  font-weight: 400;
+  color: #94a3b8;
+  border-left: 3px solid #64748b;
+}
+
+.tree-group {
+  transition: opacity 0.2s;
+}

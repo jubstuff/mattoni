@@ -1,5 +1,21 @@
 import { useState } from 'react';
-import type { Section, Component } from '../../types';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { Section, Component, Group } from '../../types';
 import {
   createSection,
   updateSection,
@@ -10,6 +26,8 @@ import {
   createComponent,
   updateComponent,
   deleteComponent,
+  reorderGroups,
+  reorderComponents,
 } from '../../api/client';
 import './TreeSidebar.css';
 
@@ -20,6 +38,169 @@ interface TreeSidebarProps {
   selectedComponentId: number | null;
 }
 
+interface SortableGroupProps {
+  group: Group;
+  section: Section;
+  isExpanded: boolean;
+  onToggle: (id: number, e: React.MouseEvent) => void;
+  editingId: string | null;
+  editingName: string;
+  setEditingName: (name: string) => void;
+  onStartEdit: (type: string, id: number, name: string, e: React.MouseEvent) => void;
+  onSaveEdit: (type: string, id: number) => void;
+  onDelete: (type: string, id: number, e: React.MouseEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent, action: () => void) => void;
+  children: React.ReactNode;
+}
+
+function SortableGroup({
+  group,
+  isExpanded,
+  onToggle,
+  editingId,
+  editingName,
+  setEditingName,
+  onStartEdit,
+  onSaveEdit,
+  onDelete,
+  onKeyDown,
+  children,
+}: SortableGroupProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `group-${group.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="tree-group">
+      <div className="tree-item tree-item-group">
+        <span className="drag-handle" {...attributes} {...listeners}>⠿</span>
+        <button className="tree-toggle" onClick={(e) => onToggle(group.id, e)}>
+          {isExpanded ? '▼' : '▶'}
+        </button>
+        {editingId === `group-${group.id}` ? (
+          <input
+            className="tree-edit-input"
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            onBlur={() => onSaveEdit('group', group.id)}
+            onKeyDown={(e) => onKeyDown(e, () => onSaveEdit('group', group.id))}
+            autoFocus
+          />
+        ) : (
+          <>
+            <span
+              className="tree-name"
+              onDoubleClick={(e) => onStartEdit('group', group.id, group.name, e)}
+            >
+              {group.name}
+            </span>
+            <button
+              className="tree-action-btn delete"
+              onClick={(e) => onDelete('group', group.id, e)}
+              title="Delete group"
+            >
+              ×
+            </button>
+          </>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+interface SortableComponentProps {
+  component: Component;
+  section: Section;
+  isSelected: boolean;
+  editingId: string | null;
+  editingName: string;
+  setEditingName: (name: string) => void;
+  onClick: (component: Component, section: Section, e: React.MouseEvent) => void;
+  onStartEdit: (type: string, id: number, name: string, e: React.MouseEvent) => void;
+  onSaveEdit: (type: string, id: number) => void;
+  onDelete: (type: string, id: number, e: React.MouseEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent, action: () => void) => void;
+}
+
+function SortableComponent({
+  component,
+  section,
+  isSelected,
+  editingId,
+  editingName,
+  setEditingName,
+  onClick,
+  onStartEdit,
+  onSaveEdit,
+  onDelete,
+  onKeyDown,
+}: SortableComponentProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `component-${component.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`tree-item tree-item-component ${isSelected ? 'selected' : ''}`}
+      onClick={(e) => onClick(component, section, e)}
+    >
+      <span className="drag-handle" {...attributes} {...listeners}>⠿</span>
+      {editingId === `component-${component.id}` ? (
+        <input
+          className="tree-edit-input"
+          value={editingName}
+          onChange={(e) => setEditingName(e.target.value)}
+          onBlur={() => onSaveEdit('component', component.id)}
+          onKeyDown={(e) => onKeyDown(e, () => onSaveEdit('component', component.id))}
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <>
+          <span
+            className="tree-name"
+            onDoubleClick={(e) => onStartEdit('component', component.id, component.name, e)}
+          >
+            {component.name}
+          </span>
+          <button
+            className="tree-action-btn delete"
+            onClick={(e) => onDelete('component', component.id, e)}
+            title="Delete component"
+          >
+            ×
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function TreeSidebar({ sections, onDataChange, onComponentSelect, selectedComponentId }: TreeSidebarProps) {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set(sections.map((s) => s.id)));
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
@@ -27,6 +208,15 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
   const [editingName, setEditingName] = useState('');
   const [addingTo, setAddingTo] = useState<{ type: 'section' | 'group' | 'component'; parentId?: number } | null>(null);
   const [newName, setNewName] = useState('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const toggleSection = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,167 +332,314 @@ export function TreeSidebar({ sections, onDataChange, onComponentSelect, selecte
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const activeIdStr = active.id as string;
+    const overIdStr = over.id as string;
+
+    // Handle group reordering
+    if (activeIdStr.startsWith('group-') && overIdStr.startsWith('group-')) {
+      const activeGroupId = parseInt(activeIdStr.replace('group-', ''));
+      const overGroupId = parseInt(overIdStr.replace('group-', ''));
+
+      // Find which sections contain these groups
+      let activeSection: Section | undefined;
+      let overSection: Section | undefined;
+      let activeGroup: Group | undefined;
+      let overGroup: Group | undefined;
+
+      for (const section of sections) {
+        for (const group of section.groups) {
+          if (group.id === activeGroupId) {
+            activeSection = section;
+            activeGroup = group;
+          }
+          if (group.id === overGroupId) {
+            overSection = section;
+            overGroup = group;
+          }
+        }
+      }
+
+      if (!activeSection || !overSection || !activeGroup || !overGroup) return;
+
+      // Build updates array
+      const updates: Array<{ id: number; sort_order: number; section_id?: number }> = [];
+
+      if (activeSection.id === overSection.id) {
+        // Same section: just reorder
+        const groupsCopy = [...activeSection.groups];
+        const oldIndex = groupsCopy.findIndex((g) => g.id === activeGroupId);
+        const newIndex = groupsCopy.findIndex((g) => g.id === overGroupId);
+
+        groupsCopy.splice(oldIndex, 1);
+        groupsCopy.splice(newIndex, 0, activeGroup);
+
+        groupsCopy.forEach((g, index) => {
+          updates.push({ id: g.id, sort_order: index + 1 });
+        });
+      } else {
+        // Different sections: move group to new section
+        const sourceGroups = activeSection.groups.filter((g) => g.id !== activeGroupId);
+        const targetGroups = [...overSection.groups];
+        const overIndex = targetGroups.findIndex((g) => g.id === overGroupId);
+        targetGroups.splice(overIndex, 0, activeGroup);
+
+        // Update source section groups
+        sourceGroups.forEach((g, index) => {
+          updates.push({ id: g.id, sort_order: index + 1 });
+        });
+
+        // Update target section groups with new section_id for the moved group
+        targetGroups.forEach((g, index) => {
+          if (g.id === activeGroupId) {
+            updates.push({ id: g.id, sort_order: index + 1, section_id: overSection!.id });
+          } else {
+            updates.push({ id: g.id, sort_order: index + 1 });
+          }
+        });
+      }
+
+      try {
+        await reorderGroups(updates);
+        onDataChange();
+      } catch (err) {
+        console.error('Error reordering groups:', err);
+      }
+    }
+
+    // Handle component reordering
+    if (activeIdStr.startsWith('component-') && overIdStr.startsWith('component-')) {
+      const activeComponentId = parseInt(activeIdStr.replace('component-', ''));
+      const overComponentId = parseInt(overIdStr.replace('component-', ''));
+
+      // Find the group containing these components
+      let targetGroup: Group | undefined;
+      let activeComponent: Component | undefined;
+
+      for (const section of sections) {
+        for (const group of section.groups) {
+          for (const component of group.components) {
+            if (component.id === activeComponentId) {
+              activeComponent = component;
+            }
+            if (component.id === overComponentId) {
+              targetGroup = group;
+            }
+          }
+        }
+      }
+
+      if (!targetGroup || !activeComponent) return;
+
+      // Check if both components are in the same group
+      const activeInGroup = targetGroup.components.some((c) => c.id === activeComponentId);
+      if (!activeInGroup) return; // Don't allow moving between groups
+
+      const componentsCopy = [...targetGroup.components];
+      const oldIndex = componentsCopy.findIndex((c) => c.id === activeComponentId);
+      const newIndex = componentsCopy.findIndex((c) => c.id === overComponentId);
+
+      componentsCopy.splice(oldIndex, 1);
+      componentsCopy.splice(newIndex, 0, activeComponent);
+
+      const updates = componentsCopy.map((c, index) => ({
+        id: c.id,
+        sort_order: index + 1,
+      }));
+
+      try {
+        await reorderComponents(updates);
+        onDataChange();
+      } catch (err) {
+        console.error('Error reordering components:', err);
+      }
+    }
+  };
+
+  // Get all group IDs for the DndContext
+  const allGroupIds = sections.flatMap((s) => s.groups.map((g) => `group-${g.id}`));
+
+  // Find active item for overlay
+  const getActiveItem = () => {
+    if (!activeId) return null;
+
+    if (activeId.startsWith('group-')) {
+      const groupId = parseInt(activeId.replace('group-', ''));
+      for (const section of sections) {
+        const group = section.groups.find((g) => g.id === groupId);
+        if (group) return { type: 'group', name: group.name };
+      }
+    }
+
+    if (activeId.startsWith('component-')) {
+      const componentId = parseInt(activeId.replace('component-', ''));
+      for (const section of sections) {
+        for (const group of section.groups) {
+          const component = group.components.find((c) => c.id === componentId);
+          if (component) return { type: 'component', name: component.name };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const activeItem = getActiveItem();
+
   return (
     <aside className="tree-sidebar">
       <div className="tree-content">
-        {sections.map((section) => (
-          <div key={section.id} className="tree-section">
-            <div className="tree-item tree-item-section">
-              <button className="tree-toggle" onClick={(e) => toggleSection(section.id, e)}>
-                {expandedSections.has(section.id) ? '▼' : '▶'}
-              </button>
-              {editingId === `section-${section.id}` ? (
-                <input
-                  className="tree-edit-input"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onBlur={() => handleSaveEdit('section', section.id)}
-                  onKeyDown={(e) => handleKeyDown(e, () => handleSaveEdit('section', section.id))}
-                  autoFocus
-                />
-              ) : (
-                <>
-                  <span
-                    className={`tree-name ${section.type}`}
-                    onDoubleClick={(e) => handleStartEdit('section', section.id, section.name, e)}
-                  >
-                    {section.name}
-                  </span>
-                  <span className="tree-type-badge">{section.type}</span>
-                  <button
-                    className="tree-action-btn delete"
-                    onClick={(e) => handleDelete('section', section.id, e)}
-                    title="Delete section"
-                  >
-                    ×
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={allGroupIds} strategy={verticalListSortingStrategy}>
+            {sections.map((section) => (
+              <div key={section.id} className="tree-section">
+                <div className="tree-item tree-item-section">
+                  <button className="tree-toggle" onClick={(e) => toggleSection(section.id, e)}>
+                    {expandedSections.has(section.id) ? '▼' : '▶'}
                   </button>
-                </>
-              )}
-            </div>
-
-            {expandedSections.has(section.id) && (
-              <div className="tree-children">
-                {section.groups.map((group) => (
-                  <div key={group.id} className="tree-group">
-                    <div className="tree-item tree-item-group">
-                      <button className="tree-toggle" onClick={(e) => toggleGroup(group.id, e)}>
-                        {expandedGroups.has(group.id) ? '▼' : '▶'}
-                      </button>
-                      {editingId === `group-${group.id}` ? (
-                        <input
-                          className="tree-edit-input"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onBlur={() => handleSaveEdit('group', group.id)}
-                          onKeyDown={(e) => handleKeyDown(e, () => handleSaveEdit('group', group.id))}
-                          autoFocus
-                        />
-                      ) : (
-                        <>
-                          <span
-                            className="tree-name"
-                            onDoubleClick={(e) => handleStartEdit('group', group.id, group.name, e)}
-                          >
-                            {group.name}
-                          </span>
-                          <button
-                            className="tree-action-btn delete"
-                            onClick={(e) => handleDelete('group', group.id, e)}
-                            title="Delete group"
-                          >
-                            ×
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {expandedGroups.has(group.id) && (
-                      <div className="tree-children">
-                        {group.components.map((component) => (
-                          <div
-                            key={component.id}
-                            className={`tree-item tree-item-component ${selectedComponentId === component.id ? 'selected' : ''}`}
-                            onClick={(e) => handleComponentClick(component, section, e)}
-                          >
-                            {editingId === `component-${component.id}` ? (
-                              <input
-                                className="tree-edit-input"
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                onBlur={() => handleSaveEdit('component', component.id)}
-                                onKeyDown={(e) => handleKeyDown(e, () => handleSaveEdit('component', component.id))}
-                                autoFocus
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              <>
-                                <span
-                                  className="tree-name"
-                                  onDoubleClick={(e) => handleStartEdit('component', component.id, component.name, e)}
-                                >
-                                  {component.name}
-                                </span>
-                                <button
-                                  className="tree-action-btn delete"
-                                  onClick={(e) => handleDelete('component', component.id, e)}
-                                  title="Delete component"
-                                >
-                                  ×
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        ))}
-
-                        {addingTo?.type === 'component' && addingTo.parentId === group.id ? (
-                          <div className="tree-item tree-item-component">
-                            <input
-                              className="tree-add-input"
-                              placeholder="Component name..."
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              onBlur={handleSaveAdd}
-                              onKeyDown={(e) => handleKeyDown(e, handleSaveAdd)}
-                              autoFocus
-                            />
-                          </div>
-                        ) : (
-                          <button
-                            className="tree-add-btn"
-                            onClick={(e) => handleStartAdd('component', group.id, e)}
-                          >
-                            + Add Component
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {addingTo?.type === 'group' && addingTo.parentId === section.id ? (
-                  <div className="tree-item tree-item-group">
+                  {editingId === `section-${section.id}` ? (
                     <input
-                      className="tree-add-input"
-                      placeholder="Group name..."
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onBlur={handleSaveAdd}
-                      onKeyDown={(e) => handleKeyDown(e, handleSaveAdd)}
+                      className="tree-edit-input"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onBlur={() => handleSaveEdit('section', section.id)}
+                      onKeyDown={(e) => handleKeyDown(e, () => handleSaveEdit('section', section.id))}
                       autoFocus
                     />
+                  ) : (
+                    <>
+                      <span
+                        className={`tree-name ${section.type}`}
+                        onDoubleClick={(e) => handleStartEdit('section', section.id, section.name, e)}
+                      >
+                        {section.name}
+                      </span>
+                      <span className="tree-type-badge">{section.type}</span>
+                      <button
+                        className="tree-action-btn delete"
+                        onClick={(e) => handleDelete('section', section.id, e)}
+                        title="Delete section"
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {expandedSections.has(section.id) && (
+                  <div className="tree-children">
+                    {section.groups.map((group) => (
+                      <SortableGroup
+                        key={group.id}
+                        group={group}
+                        section={section}
+                        isExpanded={expandedGroups.has(group.id)}
+                        onToggle={toggleGroup}
+                        editingId={editingId}
+                        editingName={editingName}
+                        setEditingName={setEditingName}
+                        onStartEdit={handleStartEdit}
+                        onSaveEdit={handleSaveEdit}
+                        onDelete={handleDelete}
+                        onKeyDown={handleKeyDown}
+                      >
+                        {expandedGroups.has(group.id) && (
+                          <div className="tree-children">
+                            <SortableContext
+                              items={group.components.map((c) => `component-${c.id}`)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {group.components.map((component) => (
+                                <SortableComponent
+                                  key={component.id}
+                                  component={component}
+                                  section={section}
+                                  isSelected={selectedComponentId === component.id}
+                                  editingId={editingId}
+                                  editingName={editingName}
+                                  setEditingName={setEditingName}
+                                  onClick={handleComponentClick}
+                                  onStartEdit={handleStartEdit}
+                                  onSaveEdit={handleSaveEdit}
+                                  onDelete={handleDelete}
+                                  onKeyDown={handleKeyDown}
+                                />
+                              ))}
+                            </SortableContext>
+
+                            {addingTo?.type === 'component' && addingTo.parentId === group.id ? (
+                              <div className="tree-item tree-item-component">
+                                <input
+                                  className="tree-add-input"
+                                  placeholder="Component name..."
+                                  value={newName}
+                                  onChange={(e) => setNewName(e.target.value)}
+                                  onBlur={handleSaveAdd}
+                                  onKeyDown={(e) => handleKeyDown(e, handleSaveAdd)}
+                                  autoFocus
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                className="tree-add-btn"
+                                onClick={(e) => handleStartAdd('component', group.id, e)}
+                              >
+                                + Add Component
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </SortableGroup>
+                    ))}
+
+                    {addingTo?.type === 'group' && addingTo.parentId === section.id ? (
+                      <div className="tree-item tree-item-group">
+                        <input
+                          className="tree-add-input"
+                          placeholder="Group name..."
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          onBlur={handleSaveAdd}
+                          onKeyDown={(e) => handleKeyDown(e, handleSaveAdd)}
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        className="tree-add-btn"
+                        onClick={(e) => handleStartAdd('group', section.id, e)}
+                      >
+                        + Add Group
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    className="tree-add-btn"
-                    onClick={(e) => handleStartAdd('group', section.id, e)}
-                  >
-                    + Add Group
-                  </button>
                 )}
               </div>
-            )}
-          </div>
-        ))}
+            ))}
+          </SortableContext>
+
+          <DragOverlay>
+            {activeItem ? (
+              <div className={`drag-overlay drag-overlay-${activeItem.type}`}>
+                {activeItem.name}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {addingTo?.type === 'section' ? (
           <div className="tree-section">

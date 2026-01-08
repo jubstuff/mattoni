@@ -267,6 +267,31 @@ function startServer(): Promise<number> {
         res.status(204).send();
       });
 
+      // Batch reorder groups (and optionally move between sections)
+      expressApp.patch('/api/groups/reorder', (req, res) => {
+        try {
+          const { updates } = req.body;
+
+          if (!updates || !Array.isArray(updates)) {
+            return res.status(400).json({ error: 'updates array is required' });
+          }
+
+          const stmt = db.prepare('UPDATE groups SET sort_order = ?, section_id = COALESCE(?, section_id) WHERE id = ?');
+
+          const transaction = db.transaction(() => {
+            for (const { id, sort_order, section_id } of updates) {
+              stmt.run(sort_order, section_id ?? null, id);
+            }
+          });
+
+          transaction();
+          res.json({ success: true });
+        } catch (error) {
+          console.error('Error reordering groups:', error);
+          res.status(500).json({ error: 'Failed to reorder groups' });
+        }
+      });
+
       // Components
       expressApp.get('/api/components', (_req, res) => {
         const components = db.prepare('SELECT * FROM components ORDER BY sort_order, id').all();
@@ -314,6 +339,31 @@ function startServer(): Promise<number> {
         const { id } = req.params;
         db.prepare('DELETE FROM components WHERE id = ?').run(id);
         res.status(204).send();
+      });
+
+      // Batch reorder components
+      expressApp.patch('/api/components/reorder', (req, res) => {
+        try {
+          const { updates } = req.body;
+
+          if (!updates || !Array.isArray(updates)) {
+            return res.status(400).json({ error: 'updates array is required' });
+          }
+
+          const stmt = db.prepare('UPDATE components SET sort_order = ? WHERE id = ?');
+
+          const transaction = db.transaction(() => {
+            for (const { id, sort_order } of updates) {
+              stmt.run(sort_order, id);
+            }
+          });
+
+          transaction();
+          res.json({ success: true });
+        } catch (error) {
+          console.error('Error reordering components:', error);
+          res.status(500).json({ error: 'Failed to reorder components' });
+        }
       });
 
       // Budget values - Get all for a year (grouped by component)

@@ -68,6 +68,13 @@ export async function deleteGroup(id: number): Promise<void> {
   });
 }
 
+export async function reorderGroups(updates: Array<{ id: number; sort_order: number; section_id?: number }>): Promise<void> {
+  return fetchJSON(`/groups/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ updates }),
+  });
+}
+
 // Components
 export async function createComponent(groupId: number, name: string): Promise<{ id: number; group_id: number; name: string }> {
   return fetchJSON(`/components`, {
@@ -86,6 +93,13 @@ export async function updateComponent(id: number, name: string): Promise<void> {
 export async function deleteComponent(id: number): Promise<void> {
   return fetchJSON<void>(`/components/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function reorderComponents(updates: Array<{ id: number; sort_order: number }>): Promise<void> {
+  return fetchJSON(`/components/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ updates }),
   });
 }
 

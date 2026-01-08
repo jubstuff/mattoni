@@ -76,4 +76,29 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// Batch reorder components
+router.patch('/reorder', (req, res) => {
+  try {
+    const { updates } = req.body;
+
+    if (!updates || !Array.isArray(updates)) {
+      return res.status(400).json({ error: 'updates array is required' });
+    }
+
+    const stmt = db.prepare('UPDATE components SET sort_order = ? WHERE id = ?');
+
+    const transaction = db.transaction(() => {
+      for (const { id, sort_order } of updates) {
+        stmt.run(sort_order, id);
+      }
+    });
+
+    transaction();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering components:', error);
+    res.status(500).json({ error: 'Failed to reorder components' });
+  }
+});
+
 export default router;
