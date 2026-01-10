@@ -20,7 +20,7 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
         className={`view-toggle-btn ${viewMode === 'cashflow' ? 'active' : ''}`}
         onClick={() => onViewModeChange('cashflow')}
       >
-        Cashflow
+        Cash Flow
       </button>
     </div>
   );

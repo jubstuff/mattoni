@@ -373,7 +373,7 @@ export function BudgetTable({ sections, budgetValues, notes, year, budgetId, vie
           {/* Grand total row */}
           <tr className="grand-total-row">
             <td className="name-cell">
-              <span className="grand-total-name">Net Total</span>
+              <span className="grand-total-name">Balance</span>
             </td>
             {MONTHS.map((_, idx) => {
               const value = grandTotals[idx + 1] || 0;

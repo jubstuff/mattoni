@@ -54,7 +54,7 @@ export function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsMod
     <div className="settings-modal-overlay" onClick={handleOverlayClick}>
       <div className="settings-modal">
         <div className="settings-modal-header">
-          <h2>Cashflow Settings</h2>
+          <h2>Cash Flow Settings</h2>
           <button className="close-btn" onClick={onClose}>
             &times;
           </button>
@@ -62,7 +62,7 @@ export function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsMod
         <div className="settings-modal-content">
           <p className="settings-description">
             Set your starting cash balance and the date it applies from.
-            The cashflow view will calculate running balances from this point forward.
+            The cash flow view will calculate running balances from this point forward.
           </p>
 
           <div className="settings-form">

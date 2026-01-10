@@ -112,14 +112,14 @@ function SortableGroup({
             <button
               className={`tree-action-btn toggle-visibility ${group.is_disabled ? 'is-disabled' : ''}`}
               onClick={(e) => onToggleDisabled(group.id, e)}
-              title={group.is_disabled ? 'Enable group' : 'Disable group'}
+              title={group.is_disabled ? 'Show category' : 'Hide category'}
             >
               {group.is_disabled ? '○' : '●'}
             </button>
             <button
               className="tree-action-btn delete"
               onClick={(e) => onDelete('group', group.id, e)}
-              title="Delete group"
+              title="Delete category"
             >
               ×
             </button>
@@ -204,14 +204,14 @@ function SortableComponent({
           <button
             className={`tree-action-btn toggle-visibility ${component.is_disabled ? 'is-disabled' : ''}`}
             onClick={(e) => onToggleDisabled(component.id, e)}
-            title={component.is_disabled ? 'Enable component' : 'Disable component'}
+            title={component.is_disabled ? 'Show subcategory' : 'Hide subcategory'}
           >
             {component.is_disabled ? '○' : '●'}
           </button>
           <button
             className="tree-action-btn delete"
             onClick={(e) => onDelete('component', component.id, e)}
-            title="Delete component"
+            title="Delete subcategory"
           >
             ×
           </button>
@@ -500,12 +500,13 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
       }
     }
 
-    // Handle component reordering
+    // Handle component reordering (supports moving between groups)
     if (activeIdStr.startsWith('component-') && overIdStr.startsWith('component-')) {
       const activeComponentId = parseInt(activeIdStr.replace('component-', ''));
       const overComponentId = parseInt(overIdStr.replace('component-', ''));
 
-      // Find the group containing these components
+      // Find the groups containing these components
+      let sourceGroup: Group | undefined;
       let targetGroup: Group | undefined;
       let activeComponent: Component | undefined;
 
@@ -513,6 +514,7 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
         for (const group of section.groups) {
           for (const component of group.components) {
             if (component.id === activeComponentId) {
+              sourceGroup = group;
               activeComponent = component;
             }
             if (component.id === overComponentId) {
@@ -522,23 +524,43 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
         }
       }
 
-      if (!targetGroup || !activeComponent) return;
+      if (!sourceGroup || !targetGroup || !activeComponent) return;
 
-      // Check if both components are in the same group
-      const activeInGroup = targetGroup.components.some((c) => c.id === activeComponentId);
-      if (!activeInGroup) return; // Don't allow moving between groups
+      const updates: Array<{ id: number; sort_order: number; group_id?: number }> = [];
 
-      const componentsCopy = [...targetGroup.components];
-      const oldIndex = componentsCopy.findIndex((c) => c.id === activeComponentId);
-      const newIndex = componentsCopy.findIndex((c) => c.id === overComponentId);
+      if (sourceGroup.id === targetGroup.id) {
+        // Same group: just reorder
+        const componentsCopy = [...targetGroup.components];
+        const oldIndex = componentsCopy.findIndex((c) => c.id === activeComponentId);
+        const newIndex = componentsCopy.findIndex((c) => c.id === overComponentId);
 
-      componentsCopy.splice(oldIndex, 1);
-      componentsCopy.splice(newIndex, 0, activeComponent);
+        componentsCopy.splice(oldIndex, 1);
+        componentsCopy.splice(newIndex, 0, activeComponent);
 
-      const updates = componentsCopy.map((c, index) => ({
-        id: c.id,
-        sort_order: index + 1,
-      }));
+        componentsCopy.forEach((c, index) => {
+          updates.push({ id: c.id, sort_order: index + 1 });
+        });
+      } else {
+        // Different groups: move component to target group
+        const sourceComponents = sourceGroup.components.filter((c) => c.id !== activeComponentId);
+        const targetComponents = [...targetGroup.components];
+        const overIndex = targetComponents.findIndex((c) => c.id === overComponentId);
+        targetComponents.splice(overIndex, 0, activeComponent);
+
+        // Update source group components
+        sourceComponents.forEach((c, index) => {
+          updates.push({ id: c.id, sort_order: index + 1 });
+        });
+
+        // Update target group components with new group_id for the moved component
+        targetComponents.forEach((c, index) => {
+          if (c.id === activeComponentId) {
+            updates.push({ id: c.id, sort_order: index + 1, group_id: targetGroup!.id });
+          } else {
+            updates.push({ id: c.id, sort_order: index + 1 });
+          }
+        });
+      }
 
       try {
         await reorderComponents(updates);
@@ -671,7 +693,7 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
                               <div className="tree-item tree-item-component">
                                 <input
                                   className="tree-add-input"
-                                  placeholder="Component name..."
+                                  placeholder="Subcategory name..."
                                   value={newName}
                                   onChange={(e) => setNewName(e.target.value)}
                                   onBlur={handleSaveAdd}
@@ -684,7 +706,7 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
                                 className="tree-add-btn"
                                 onClick={(e) => handleStartAdd('component', group.id, e)}
                               >
-                                + Add Component
+                                + Add Subcategory
                               </button>
                             )}
                           </div>
@@ -696,7 +718,7 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
                       <div className="tree-item tree-item-group">
                         <input
                           className="tree-add-input"
-                          placeholder="Group name..."
+                          placeholder="Category name..."
                           value={newName}
                           onChange={(e) => setNewName(e.target.value)}
                           onBlur={handleSaveAdd}
@@ -709,7 +731,7 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
                         className="tree-add-btn"
                         onClick={(e) => handleStartAdd('group', section.id, e)}
                       >
-                        + Add Group
+                        + Add Category
                       </button>
                     )}
                   </div>

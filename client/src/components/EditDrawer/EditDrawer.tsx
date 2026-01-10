@@ -5,6 +5,44 @@ import './EditDrawer.css';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Evaluate simple math expressions like "100+50" or "500-20%"
+function evaluateExpression(input: string): number | null {
+  const trimmed = input.trim();
+
+  // Check if it looks like an expression (contains operator)
+  if (!/[+\-*/]/.test(trimmed)) return null;
+
+  // Handle percentage operations: 100+10% → 100 + (100 * 0.10)
+  const percentMatch = trimmed.match(/^(\d+\.?\d*)\s*([+\-*/])\s*(\d+\.?\d*)%$/);
+  if (percentMatch) {
+    const [, base, op, percent] = percentMatch;
+    const baseNum = parseFloat(base);
+    const percentNum = parseFloat(percent) / 100;
+    switch (op) {
+      case '+': return baseNum + (baseNum * percentNum);
+      case '-': return baseNum - (baseNum * percentNum);
+      case '*': return baseNum * percentNum;
+      case '/': return percentNum !== 0 ? baseNum / percentNum : null;
+    }
+  }
+
+  // Handle basic expressions: 100+50, 200*3, etc.
+  const basicMatch = trimmed.match(/^(\d+\.?\d*)\s*([+\-*/])\s*(\d+\.?\d*)$/);
+  if (basicMatch) {
+    const [, left, op, right] = basicMatch;
+    const a = parseFloat(left);
+    const b = parseFloat(right);
+    switch (op) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return b !== 0 ? a / b : null;
+    }
+  }
+
+  return null;
+}
+
 interface EditDrawerProps {
   component: Component | null;
   section: Section | null;
@@ -23,8 +61,11 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [hasNoteChanges, setHasNoteChanges] = useState(false);
+  const [editingMonth, setEditingMonth] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
+  const dragSourceValueRef = useRef<number>(0);
 
   // Use refs to track values for auto-save without causing re-renders
   const previousComponentIdRef = useRef<number | null>(null);
@@ -113,6 +154,15 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
         valuesRef.current = valuesData;
         setComponentNotes(notesData);
         notesRef.current = notesData;
+        // Focus first cell after loading
+        setTimeout(() => {
+          inputRefs.current[0]?.focus();
+          inputRefs.current[0]?.select();
+          setSelectedCell(1);
+          setEditingMonth(1);
+          const firstValue = valuesData[1] || 0;
+          setEditingValue(firstValue === 0 ? '' : String(firstValue));
+        }, 50);
       })
       .catch((err) => {
         console.error('Error loading values:', err);
@@ -144,8 +194,15 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     };
   }, [onValuesChange]);
 
-  const handleValueChange = (month: number, value: string) => {
-    const numValue = value === '' ? 0 : parseFloat(value) || 0;
+  const handleValueChange = (_month: number, value: string) => {
+    // Just track the raw input while editing
+    setEditingValue(value);
+  };
+
+  const commitValue = (month: number) => {
+    // Evaluate expression and commit the result
+    const evaluated = evaluateExpression(editingValue);
+    const numValue = evaluated !== null ? evaluated : (editingValue === '' ? 0 : parseFloat(editingValue) || 0);
     setValues((prev) => {
       const newValues = { ...prev, [month]: numValue };
       valuesRef.current = newValues;
@@ -153,6 +210,8 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     });
     setHasChanges(true);
     hasChangesRef.current = true;
+    setEditingMonth(null);
+    setEditingValue('');
   };
 
   const handleNoteChange = (month: number, note: string) => {
@@ -205,12 +264,45 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
 
   const handleCellFocus = (month: number) => {
     setSelectedCell(month);
+    setEditingMonth(month);
+    // Initialize with current value as string
+    const currentValue = values[month] || 0;
+    setEditingValue(currentValue === 0 ? '' : String(currentValue));
+  };
+
+  const handleCellBlur = (month: number) => {
+    if (editingMonth === month) {
+      commitValue(month);
+    }
   };
 
   // Fill handle drag functionality
   const handleFillHandleMouseDown = (e: React.MouseEvent, month: number) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Get the source value - either from current edit or stored values
+    let sourceValue: number;
+    if (editingMonth === month && editingValue) {
+      const evaluated = evaluateExpression(editingValue);
+      sourceValue = evaluated !== null ? evaluated : (editingValue === '' ? 0 : parseFloat(editingValue) || 0);
+      // Commit the edit
+      setValues((prev) => {
+        const newValues = { ...prev, [month]: sourceValue };
+        valuesRef.current = newValues;
+        return newValues;
+      });
+      setHasChanges(true);
+      hasChangesRef.current = true;
+      setEditingMonth(null);
+      setEditingValue('');
+    } else {
+      sourceValue = values[month] || 0;
+    }
+
+    // Store source value in ref for use in handleMouseUp
+    dragSourceValueRef.current = sourceValue;
+
     setIsDragging(true);
     setDragStart(month);
     setDragEnd(month);
@@ -239,7 +331,7 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
 
   const handleMouseUp = useCallback(() => {
     if (isDragging && dragStart !== null && dragEnd !== null && dragStart !== dragEnd) {
-      const sourceValue = values[dragStart] || 0;
+      const sourceValue = dragSourceValueRef.current;
       const start = Math.min(dragStart, dragEnd);
       const end = Math.max(dragStart, dragEnd);
 
@@ -258,7 +350,7 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     setIsDragging(false);
     setDragStart(null);
     setDragEnd(null);
-  }, [isDragging, dragStart, dragEnd, values]);
+  }, [isDragging, dragStart, dragEnd]);
 
   useEffect(() => {
     if (isDragging) {
@@ -334,12 +426,14 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
                             <div className={`cell-wrapper ${isSelected ? 'selected' : ''}`}>
                               <input
                                 ref={(el) => { inputRefs.current[idx] = el; }}
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 className="value-input"
-                                value={values[month] || ''}
+                                value={editingMonth === month ? editingValue : (values[month] || '')}
                                 onChange={(e) => handleValueChange(month, e.target.value)}
                                 onKeyDown={(e) => handleCellKeyDown(e, month)}
                                 onFocus={() => handleCellFocus(month)}
+                                onBlur={() => handleCellBlur(month)}
                                 placeholder="0"
                               />
                               {isSelected && !isDragging && (
@@ -360,7 +454,7 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
                   </tbody>
                 </table>
                 <p className="keyboard-hint">
-                  Arrow keys or Tab to navigate • Drag corner to fill • Auto-saves on switch
+                  Arrow keys or Tab to navigate • Drag corner to fill • Math: 100+50, 500-20% • Auto-saves
                 </p>
 
                 {selectedCell && (
@@ -380,6 +474,12 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
                 )}
               </div>
             )}
+          </div>
+
+          <div className="drawer-footer">
+            <button className="save-btn" onClick={onClose}>
+              Save
+            </button>
           </div>
         </>
       )}

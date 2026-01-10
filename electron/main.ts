@@ -331,7 +331,13 @@ function startServer(): Promise<number> {
       expressApp.post('/api/groups', requireDatabase, (req, res) => {
         const db = getCurrentDatabase()!;
         const { section_id, name, sort_order } = req.body;
-        const result = db.prepare('INSERT INTO groups (section_id, name, sort_order) VALUES (?, ?, ?)').run(section_id, name, sort_order || 0);
+        // If no sort_order provided, add at the end of the section
+        let finalSortOrder = sort_order;
+        if (finalSortOrder === undefined || finalSortOrder === null) {
+          const maxResult = db.prepare('SELECT MAX(sort_order) as max_order FROM groups WHERE section_id = ?').get(section_id) as { max_order: number | null };
+          finalSortOrder = (maxResult?.max_order ?? 0) + 1;
+        }
+        const result = db.prepare('INSERT INTO groups (section_id, name, sort_order) VALUES (?, ?, ?)').run(section_id, name, finalSortOrder);
         const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(result.lastInsertRowid);
         res.status(201).json(group);
       });
@@ -409,7 +415,13 @@ function startServer(): Promise<number> {
       expressApp.post('/api/components', requireDatabase, (req, res) => {
         const db = getCurrentDatabase()!;
         const { group_id, name, sort_order } = req.body;
-        const result = db.prepare('INSERT INTO components (group_id, name, sort_order) VALUES (?, ?, ?)').run(group_id, name, sort_order || 0);
+        // If no sort_order provided, add at the end of the group
+        let finalSortOrder = sort_order;
+        if (finalSortOrder === undefined || finalSortOrder === null) {
+          const maxResult = db.prepare('SELECT MAX(sort_order) as max_order FROM components WHERE group_id = ?').get(group_id) as { max_order: number | null };
+          finalSortOrder = (maxResult?.max_order ?? 0) + 1;
+        }
+        const result = db.prepare('INSERT INTO components (group_id, name, sort_order) VALUES (?, ?, ?)').run(group_id, name, finalSortOrder);
         const component = db.prepare('SELECT * FROM components WHERE id = ?').get(result.lastInsertRowid);
         res.status(201).json(component);
       });
@@ -451,7 +463,7 @@ function startServer(): Promise<number> {
         res.status(204).send();
       });
 
-      // Batch reorder components
+      // Batch reorder components (supports moving between groups)
       expressApp.patch('/api/components/reorder', requireDatabase, (req, res) => {
         try {
           const db = getCurrentDatabase()!;
@@ -461,11 +473,16 @@ function startServer(): Promise<number> {
             return res.status(400).json({ error: 'updates array is required' });
           }
 
-          const stmt = db.prepare('UPDATE components SET sort_order = ? WHERE id = ?');
+          const stmtWithGroup = db.prepare('UPDATE components SET sort_order = ?, group_id = ? WHERE id = ?');
+          const stmtWithoutGroup = db.prepare('UPDATE components SET sort_order = ? WHERE id = ?');
 
           const transaction = db.transaction(() => {
-            for (const { id, sort_order } of updates) {
-              stmt.run(sort_order, id);
+            for (const { id, sort_order, group_id } of updates) {
+              if (group_id !== undefined) {
+                stmtWithGroup.run(sort_order, group_id, id);
+              } else {
+                stmtWithoutGroup.run(sort_order, id);
+              }
             }
           });
 

@@ -96,7 +96,7 @@ export async function deleteComponent(id: number): Promise<void> {
   });
 }
 
-export async function reorderComponents(updates: Array<{ id: number; sort_order: number }>): Promise<void> {
+export async function reorderComponents(updates: Array<{ id: number; sort_order: number; group_id?: number }>): Promise<void> {
   return fetchJSON(`/components/reorder`, {
     method: 'PATCH',
     body: JSON.stringify({ updates }),
