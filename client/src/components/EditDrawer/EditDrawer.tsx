@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Component, Section, MonthlyValues, MonthlyNotes } from '../../types';
 import { getComponentBudgetValues, updateBudgetValues, getComponentNotes, updateNotes } from '../../api/client';
+import { PastePreviewModal } from '../PastePreviewModal/PastePreviewModal';
+import { parseClipboardTSV, valuesToMonthlyValues, type ParsedClipboardData } from '../../utils/clipboard';
 import './EditDrawer.css';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -66,6 +68,10 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
   const dragSourceValueRef = useRef<number>(0);
+
+  // Paste preview modal state
+  const [pastePreviewOpen, setPastePreviewOpen] = useState(false);
+  const [pasteData, setPasteData] = useState<ParsedClipboardData | null>(null);
 
   // Use refs to track values for auto-save without causing re-renders
   const previousComponentIdRef = useRef<number | null>(null);
@@ -232,6 +238,49 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     }
   }, []);
 
+  // Paste from clipboard handlers
+  const handlePaste = useCallback(async () => {
+    if (!component) return;
+
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed = parseClipboardTSV(text);
+
+      if (parsed.values.length === 0) {
+        return;
+      }
+
+      setPasteData(parsed);
+      setPastePreviewOpen(true);
+    } catch (err) {
+      console.error('Failed to read clipboard:', err);
+    }
+  }, [component]);
+
+  const handlePasteConfirm = useCallback(() => {
+    if (!pasteData) return;
+
+    const startMonth = selectedCell ?? 1;
+    const newMonthlyValues = valuesToMonthlyValues(pasteData.values, startMonth);
+
+    setValues((prev) => {
+      const merged = { ...prev, ...newMonthlyValues };
+      valuesRef.current = merged;
+      return merged;
+    });
+
+    setHasChanges(true);
+    hasChangesRef.current = true;
+
+    setPastePreviewOpen(false);
+    setPasteData(null);
+  }, [pasteData, selectedCell]);
+
+  const handlePasteCancel = useCallback(() => {
+    setPastePreviewOpen(false);
+    setPasteData(null);
+  }, []);
+
   const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, month: number) => {
     switch (e.key) {
       case 'ArrowRight':
@@ -363,6 +412,28 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  // Keyboard listener for Cmd+V / Ctrl+V paste
+  useEffect(() => {
+    if (!component) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        navigator.clipboard.readText().then((text) => {
+          if (text.includes('\t')) {
+            e.preventDefault();
+            handlePaste();
+          }
+          // Single value: let default paste behavior handle it
+        }).catch(() => {
+          // Clipboard read failed, let default behavior continue
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [component, handlePaste]);
+
   const isInDragRange = (month: number) => {
     if (!isDragging || dragStart === null || dragEnd === null) return false;
     const start = Math.min(dragStart, dragEnd);
@@ -454,7 +525,7 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
                   </tbody>
                 </table>
                 <p className="keyboard-hint">
-                  Arrow keys or Tab to navigate • Drag corner to fill • Math: 100+50, 500-20% • Auto-saves
+                  Arrow keys or Tab to navigate • Drag corner to fill • Math: 100+50, 500-20% • Cmd+V to paste • Auto-saves
                 </p>
 
                 {selectedCell && (
@@ -484,6 +555,14 @@ export function EditDrawer({ component, section, year, onClose, onValuesChange }
         </>
       )}
     </aside>
+      <PastePreviewModal
+        isOpen={pastePreviewOpen}
+        data={pasteData ?? { values: [], rawValues: [], errors: [], isValid: false }}
+        startMonth={selectedCell ?? 1}
+        currentValues={values}
+        onConfirm={handlePasteConfirm}
+        onCancel={handlePasteCancel}
+      />
     </>
   );
 }
