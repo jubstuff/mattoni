@@ -56,3 +56,9 @@ export interface CashflowSettings {
   starting_year: number;
   starting_month: number;
 }
+
+// Actuals cutoff settings
+export interface ActualsCutoffSettings {
+  cutoff_year: number;
+  cutoff_month: number;
+}

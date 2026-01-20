@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell, Menu, dialog, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -29,6 +29,52 @@ import type { BudgetMetadata } from './types.js';
 
 let mainWindow: BrowserWindow | null = null;
 let server: ReturnType<typeof express.application.listen> | null = null;
+
+// Window state persistence
+interface WindowBounds {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+}
+
+function getWindowStatePath(): string {
+  return path.join(getDataPath(), 'window-state.json');
+}
+
+function getWindowBounds(): WindowBounds {
+  const defaults: WindowBounds = { width: 1400, height: 900 };
+  const filePath = getWindowStatePath();
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      if (content) {
+        const data = JSON.parse(content);
+        return { ...defaults, ...data };
+      }
+    }
+  } catch (err) {
+    console.error('Error loading window state, using defaults:', err);
+    // Delete corrupted file
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // Ignore deletion errors
+    }
+  }
+  return defaults;
+}
+
+function saveWindowBounds(): void {
+  if (mainWindow) {
+    try {
+      const bounds = mainWindow.getBounds();
+      fs.writeFileSync(getWindowStatePath(), JSON.stringify(bounds, null, 2));
+    } catch (err) {
+      console.error('Error saving window state:', err);
+    }
+  }
+}
 
 // Migration: Handle existing budget.db from before multi-budget support
 function migrateExistingBudget(): void {
@@ -734,6 +780,107 @@ function startServer(): Promise<number> {
         res.json({ success: true, starting_balance, starting_year, starting_month });
       });
 
+      // Actuals cutoff settings (must be before :year route to avoid matching conflicts)
+      expressApp.get('/api/actuals/cutoff/settings', requireDatabase, (_req, res) => {
+        const db = getCurrentDatabase()!;
+
+        const settings = db.prepare(`
+          SELECT cutoff_year, cutoff_month
+          FROM actuals_cutoff_settings
+          LIMIT 1
+        `).get() as { cutoff_year: number; cutoff_month: number } | undefined;
+
+        if (settings) {
+          res.json(settings);
+        } else {
+          // Return defaults (previous month)
+          const now = new Date();
+          let cutoffMonth = now.getMonth(); // Previous month (0-indexed becomes 1-indexed previous)
+          let cutoffYear = now.getFullYear();
+          if (cutoffMonth === 0) {
+            cutoffMonth = 12;
+            cutoffYear -= 1;
+          }
+          res.json({
+            cutoff_year: cutoffYear,
+            cutoff_month: cutoffMonth,
+          });
+        }
+      });
+
+      expressApp.put('/api/actuals/cutoff/settings', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
+        const { cutoff_year, cutoff_month } = req.body;
+
+        if (cutoff_year === undefined || cutoff_month === undefined) {
+          return res.status(400).json({ error: 'cutoff_year and cutoff_month are required' });
+        }
+
+        // Delete any existing settings and insert new one
+        db.prepare('DELETE FROM actuals_cutoff_settings').run();
+        db.prepare(`
+          INSERT INTO actuals_cutoff_settings (cutoff_year, cutoff_month, updated_at)
+          VALUES (?, ?, CURRENT_TIMESTAMP)
+        `).run(cutoff_year, cutoff_month);
+
+        res.json({ success: true, cutoff_year, cutoff_month });
+      });
+
+      // Actual values - component update (before :year to avoid conflicts)
+      expressApp.put('/api/actuals/component/:componentId', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
+        const { componentId } = req.params;
+        const { year, values } = req.body;
+
+        if (!year || !values || typeof values !== 'object') {
+          return res.status(400).json({ error: 'year and values object are required' });
+        }
+
+        const component = db.prepare('SELECT id FROM components WHERE id = ?').get(componentId);
+        if (!component) {
+          return res.status(404).json({ error: 'Component not found' });
+        }
+
+        const upsert = db.prepare(`
+          INSERT INTO actual_values (component_id, year, month, amount)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(component_id, year, month)
+          DO UPDATE SET amount = excluded.amount, updated_at = CURRENT_TIMESTAMP
+        `);
+
+        const transaction = db.transaction(() => {
+          for (const [month, amount] of Object.entries(values)) {
+            const monthNum = parseInt(month, 10);
+            if (monthNum >= 1 && monthNum <= 12) {
+              upsert.run(componentId, year, monthNum, amount);
+            }
+          }
+        });
+
+        transaction();
+        res.json({ success: true });
+      });
+
+      // Actual values - get by year (general route last)
+      expressApp.get('/api/actuals/:year', requireDatabase, (req, res) => {
+        const db = getCurrentDatabase()!;
+        const { year } = req.params;
+        const values = db.prepare(`
+          SELECT component_id, month, amount
+          FROM actual_values
+          WHERE year = ?
+        `).all(year) as Array<{ component_id: number; month: number; amount: number }>;
+
+        const valuesByComponent: Record<number, Record<number, number>> = {};
+        for (const value of values) {
+          if (!valuesByComponent[value.component_id]) {
+            valuesByComponent[value.component_id] = {};
+          }
+          valuesByComponent[value.component_id][value.month] = value.amount;
+        }
+        res.json(valuesByComponent);
+      });
+
       // Health check
       expressApp.get('/api/health', (_req, res) => {
         res.json({ status: 'ok', hasBudget: getCurrentDatabase() !== null });
@@ -762,15 +909,112 @@ function startServer(): Promise<number> {
   });
 }
 
+function createMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Export Data...',
+          accelerator: 'CmdOrCtrl+E',
+          click: async () => {
+            const { filePath } = await dialog.showSaveDialog({
+              defaultPath: `mattoni-export-${Date.now()}.json`,
+              filters: [{ name: 'JSON', extensions: ['json'] }]
+            });
+            if (filePath) {
+              const metadata = loadMetadata();
+              const data = { metadata, exportDate: new Date().toISOString() };
+              fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+            }
+          }
+        },
+        {
+          label: 'Reveal Data Folder',
+          click: () => {
+            shell.openPath(app.getPath('userData'));
+          }
+        },
+        { type: 'separator' },
+        { role: 'close' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click: () => shell.openExternal('https://github.com/jubstuff/mattoni')
+        }
+      ]
+    }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow(port: number): void {
+  const bounds = getWindowBounds();
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...bounds,
     minWidth: 1200,
     minHeight: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webviewTag: false,
+      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, 'preload.js'),
     },
     titleBarStyle: 'hiddenInset',
     show: false,
@@ -778,9 +1022,27 @@ function createWindow(port: number): void {
 
   mainWindow.loadURL(`http://localhost:${port}`);
 
+  // Block navigation to external URLs
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedOrigin = `http://localhost:${port}`;
+    if (!url.startsWith(allowedOrigin)) {
+      event.preventDefault();
+    }
+  });
+
+  // Block new window creation, open external links in system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
+
+  mainWindow.on('close', saveWindowBounds);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -791,6 +1053,39 @@ let serverPort: number;
 
 app.whenReady().then(async () => {
   try {
+    // Set up About panel
+    app.setAboutPanelOptions({
+      applicationName: 'Mattoni',
+      applicationVersion: app.getVersion(),
+      copyright: `© ${new Date().getFullYear()}`,
+      credits: 'Personal Finance Budgeting',
+      iconPath: path.join(__dirname, '..', 'icons', 'icon.png'),
+    });
+
+    // Set up IPC handlers
+    ipcMain.handle('export-data', async () => {
+      const { filePath } = await dialog.showSaveDialog({
+        defaultPath: `mattoni-export-${Date.now()}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      });
+      if (filePath) {
+        const metadata = loadMetadata();
+        const data = { metadata, exportDate: new Date().toISOString() };
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        return true;
+      }
+      return false;
+    });
+
+    ipcMain.handle('reveal-data-folder', () => {
+      shell.openPath(app.getPath('userData'));
+    });
+
+    ipcMain.handle('get-version', () => {
+      return app.getVersion();
+    });
+
+    createMenu();
     serverPort = await startServer();
     createWindow(serverPort);
   } catch (error) {

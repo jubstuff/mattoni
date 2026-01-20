@@ -1,6 +1,6 @@
 import './ViewToggle.css';
 
-export type ViewMode = 'budget' | 'cashflow';
+export type ViewMode = 'budget' | 'cashflow' | 'budget-vs-actual';
 
 interface ViewToggleProps {
   viewMode: ViewMode;
@@ -21,6 +21,12 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
         onClick={() => onViewModeChange('cashflow')}
       >
         Cash Flow
+      </button>
+      <button
+        className={`view-toggle-btn ${viewMode === 'budget-vs-actual' ? 'active' : ''}`}
+        onClick={() => onViewModeChange('budget-vs-actual')}
+      >
+        Budget vs Actual
       </button>
     </div>
   );

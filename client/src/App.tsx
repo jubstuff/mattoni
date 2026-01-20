@@ -6,8 +6,9 @@ import { YearSelector } from './components/YearSelector/YearSelector';
 import { ViewToggle, type ViewMode } from './components/ViewToggle/ViewToggle';
 import { SettingsModal } from './components/SettingsModal/SettingsModal';
 import { WelcomeScreen } from './components/WelcomeScreen/WelcomeScreen';
-import { getSections, getBudgetValues, getNotes, getBudgets, selectBudget, deselectBudget, getCashflowSettings, updateCashflowSettings } from './api/client';
-import type { Section, BudgetValues, Component, Notes, BudgetMetadata, CashflowSettings } from './types';
+import { BudgetVsActualView } from './components/BudgetVsActualView/BudgetVsActualView';
+import { getSections, getBudgetValues, getNotes, getBudgets, selectBudget, deselectBudget, getCashflowSettings, updateCashflowSettings, getActualValues, getActualsCutoff } from './api/client';
+import type { Section, BudgetValues, Component, Notes, BudgetMetadata, CashflowSettings, ActualsCutoffSettings } from './types';
 import './App.css';
 
 type AppView = 'loading' | 'welcome' | 'budget';
@@ -24,6 +25,11 @@ function App() {
     starting_balance: 0,
     starting_year: new Date().getFullYear(),
     starting_month: 1,
+  });
+  const [actualValues, setActualValues] = useState<BudgetValues>({});
+  const [actualsCutoff, setActualsCutoff] = useState<ActualsCutoffSettings>({
+    cutoff_year: new Date().getFullYear(),
+    cutoff_month: new Date().getMonth() || 12,
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -69,16 +75,20 @@ function App() {
     try {
       setDataLoading(true);
       setError(null);
-      const [sectionsData, valuesData, notesData, settingsData] = await Promise.all([
+      const [sectionsData, valuesData, notesData, settingsData, actualsData, cutoffData] = await Promise.all([
         getSections(),
         getBudgetValues(selectedYear),
         getNotes(selectedYear),
         getCashflowSettings(),
+        getActualValues(selectedYear),
+        getActualsCutoff(),
       ]);
       setSections(sectionsData);
       setBudgetValues(valuesData);
       setNotes(notesData);
       setCashflowSettings(settingsData);
+      setActualValues(actualsData);
+      setActualsCutoff(cutoffData);
     } catch (err) {
       setError('Failed to load data.');
       console.error('Error fetching data:', err);
@@ -234,15 +244,26 @@ function App() {
           onValuesChange={handleValuesChange}
         />
         <main className="app-main">
-          <BudgetTable
-            sections={sections}
-            budgetValues={budgetValues}
-            notes={notes}
-            year={selectedYear}
-            budgetId={currentBudget?.id ?? null}
-            viewMode={viewMode}
-            cashflowSettings={cashflowSettings}
-          />
+          {viewMode === 'budget-vs-actual' ? (
+            <BudgetVsActualView
+              sections={sections}
+              budgetValues={budgetValues}
+              actualValues={actualValues}
+              cutoffSettings={actualsCutoff}
+              year={selectedYear}
+              onDataChange={fetchData}
+            />
+          ) : (
+            <BudgetTable
+              sections={sections}
+              budgetValues={budgetValues}
+              notes={notes}
+              year={selectedYear}
+              budgetId={currentBudget?.id ?? null}
+              viewMode={viewMode}
+              cashflowSettings={cashflowSettings}
+            />
+          )}
         </main>
       </div>
       <SettingsModal

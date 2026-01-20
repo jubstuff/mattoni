@@ -8,6 +8,9 @@ import groupsRouter from './routes/groups.js';
 import componentsRouter from './routes/components.js';
 import budgetRouter from './routes/budget.js';
 import notesRouter from './routes/notes.js';
+import actualsRouter from './routes/actuals.js';
+import budgetsRouter from './routes/budgets.js';
+import cashflowSettingsRouter from './routes/cashflow-settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -26,6 +29,9 @@ app.use('/api/groups', groupsRouter);
 app.use('/api/components', componentsRouter);
 app.use('/api/budget', budgetRouter);
 app.use('/api/notes', notesRouter);
+app.use('/api/actuals', actualsRouter);
+app.use('/api/budgets', budgetsRouter);
+app.use('/api/cashflow-settings', cashflowSettingsRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

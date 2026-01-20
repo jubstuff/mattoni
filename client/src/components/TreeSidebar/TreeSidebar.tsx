@@ -569,6 +569,59 @@ export function TreeSidebar({ sections, budgetId, onDataChange, onComponentSelec
         console.error('Error reordering components:', err);
       }
     }
+
+    // Handle component dropped onto a group (for empty groups or dropping at end of group)
+    if (activeIdStr.startsWith('component-') && overIdStr.startsWith('group-')) {
+      const activeComponentId = parseInt(activeIdStr.replace('component-', ''));
+      const targetGroupId = parseInt(overIdStr.replace('group-', ''));
+
+      // Find source group and component
+      let sourceGroup: Group | undefined;
+      let targetGroup: Group | undefined;
+      let activeComponent: Component | undefined;
+
+      for (const section of sections) {
+        for (const group of section.groups) {
+          if (group.id === targetGroupId) {
+            targetGroup = group;
+          }
+          for (const component of group.components) {
+            if (component.id === activeComponentId) {
+              sourceGroup = group;
+              activeComponent = component;
+            }
+          }
+        }
+      }
+
+      if (!sourceGroup || !targetGroup || !activeComponent) return;
+      if (sourceGroup.id === targetGroup.id) return; // No-op if same group
+
+      const updates: Array<{ id: number; sort_order: number; group_id?: number }> = [];
+
+      // Remove from source group
+      const sourceComponents = sourceGroup.components.filter((c) => c.id !== activeComponentId);
+      sourceComponents.forEach((c, index) => {
+        updates.push({ id: c.id, sort_order: index + 1 });
+      });
+
+      // Add to end of target group
+      const targetComponents = [...targetGroup.components, activeComponent];
+      targetComponents.forEach((c, index) => {
+        if (c.id === activeComponentId) {
+          updates.push({ id: c.id, sort_order: index + 1, group_id: targetGroup!.id });
+        } else {
+          updates.push({ id: c.id, sort_order: index + 1 });
+        }
+      });
+
+      try {
+        await reorderComponents(updates);
+        onDataChange();
+      } catch (err) {
+        console.error('Error moving component to group:', err);
+      }
+    }
   };
 
   // Get all group IDs for the DndContext

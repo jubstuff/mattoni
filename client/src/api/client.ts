@@ -1,4 +1,4 @@
-import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes, BudgetMetadata, BudgetsResponse, CashflowSettings } from '../types';
+import type { Section, BudgetValues, MonthlyValues, Notes, MonthlyNotes, BudgetMetadata, BudgetsResponse, CashflowSettings, ActualsCutoffSettings } from '../types';
 
 const API_BASE = '/api';
 
@@ -191,6 +191,30 @@ export async function getCashflowSettings(): Promise<CashflowSettings> {
 
 export async function updateCashflowSettings(settings: CashflowSettings): Promise<void> {
   return fetchJSON('/cashflow-settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+}
+
+// Actual Values
+export async function getActualValues(year: number): Promise<BudgetValues> {
+  return fetchJSON<BudgetValues>(`/actuals/${year}`);
+}
+
+export async function updateActualValues(componentId: number, year: number, values: MonthlyValues): Promise<void> {
+  return fetchJSON(`/actuals/component/${componentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ year, values }),
+  });
+}
+
+// Actuals Cutoff Settings
+export async function getActualsCutoff(): Promise<ActualsCutoffSettings> {
+  return fetchJSON<ActualsCutoffSettings>('/actuals/cutoff/settings');
+}
+
+export async function updateActualsCutoff(settings: ActualsCutoffSettings): Promise<void> {
+  return fetchJSON('/actuals/cutoff/settings', {
     method: 'PUT',
     body: JSON.stringify(settings),
   });

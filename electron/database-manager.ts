@@ -68,6 +68,26 @@ function initializeDatabase(db: Database.Database): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS actual_values (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+      amount REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
+      UNIQUE(component_id, year, month)
+    );
+
+    CREATE TABLE IF NOT EXISTS actuals_cutoff_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cutoff_year INTEGER NOT NULL,
+      cutoff_month INTEGER NOT NULL CHECK (cutoff_month >= 1 AND cutoff_month <= 12),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migration: Add is_disabled column to existing tables if not present

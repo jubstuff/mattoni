@@ -49,6 +49,34 @@ export function initializeDatabase() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(component_id, year, month)
     );
+
+    CREATE TABLE IF NOT EXISTS actual_values (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
+      amount REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(component_id, year, month)
+    );
+
+    CREATE TABLE IF NOT EXISTS actuals_cutoff_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cutoff_year INTEGER NOT NULL,
+      cutoff_month INTEGER NOT NULL CHECK(cutoff_month BETWEEN 1 AND 12),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS cashflow_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      starting_balance REAL DEFAULT 0,
+      starting_year INTEGER NOT NULL,
+      starting_month INTEGER NOT NULL CHECK(starting_month BETWEEN 1 AND 12),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   db.pragma('foreign_keys = ON');
