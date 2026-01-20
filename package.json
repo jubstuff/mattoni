@@ -1,6 +1,6 @@
 {
   "name": "mattoni",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Mattoni - Personal finance budgeting, brick by brick",
   "private": true,
   "scripts": {
